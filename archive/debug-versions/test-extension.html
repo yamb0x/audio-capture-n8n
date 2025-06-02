@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chrome Extension Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .console-output {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .success { background-color: #4CAF50; color: white; }
+        .error { background-color: #f44336; color: white; }
+        .info { background-color: #2196F3; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Chrome Extension Test Page</h1>
+    
+    <div class="test-section">
+        <h2>Extension Debugging Steps</h2>
+        <ol>
+            <li><strong>Reload the Extension:</strong>
+                <ul>
+                    <li>Go to chrome://extensions/</li>
+                    <li>Find "Audio Capture for n8n"</li>
+                    <li>Click the refresh icon to reload with new changes</li>
+                </ul>
+            </li>
+            <li><strong>Open Developer Console:</strong>
+                <ul>
+                    <li>Right-click on the extension icon and select "Inspect popup"</li>
+                    <li>This opens the popup's DevTools console</li>
+                </ul>
+            </li>
+            <li><strong>Monitor Console Output:</strong>
+                <ul>
+                    <li>Start a recording</li>
+                    <li>Wait a few seconds</li>
+                    <li>Click Stop</li>
+                    <li>Look for these key logs:</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>Expected Console Logs on Stop</h2>
+        <div class="console-output">
+[POPUP] Stop button clicked
+[POPUP] Recording state before stop: {
+  isRecording: true,
+  hasMediaRecorder: true,
+  mediaRecorderState: "recording",
+  recordingSessionId: "session_..."
+}
+[POPUP] stopMediaRecorder called
+[POPUP] Current state: {
+  hasMediaRecorder: true,
+  mediaRecorderState: "recording",
+  audioChunksLength: 1,
+  chunkCounter: 0,
+  recordingSessionId: "session_..."
+}
+[POPUP] Calling sendFinalAudioChunk...
+[POPUP] sendFinalAudioChunk called
+[POPUP] Final chunk webhook URL: https://...
+[POPUP] Final chunk metadata: {...}
+[POPUP] Created final audio blob, size: ...
+[POPUP] FileReader onloadend triggered for final chunk
+[POPUP] Final chunk base64 length: ...
+[POPUP] Sending FINAL audio chunk to n8n
+[POPUP] Final chunk payload: {...}
+[POPUP] Final chunk sent, status: 200
+[POPUP] Final chunk response: ...
+[POPUP] Final chunk sent successfully!
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Common Issues</h2>
+        <ul>
+            <li><strong>Changes not taking effect:</strong> Extension needs to be reloaded in chrome://extensions/</li>
+            <li><strong>No console output:</strong> Make sure to inspect the popup, not the page</li>
+            <li><strong>sendFinalAudioChunk not called:</strong> Check if mediaRecorder exists when stopping</li>
+            <li><strong>Network errors:</strong> Check webhook URL is correct and accessible</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>Audio Playback Test</h2>
+        <p>Play some audio to test recording:</p>
+        <audio controls>
+            <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBi171Oy9diMFl2uz7rJuKwVap9fpvHkwBlOh3+6/eSAEQY/W8c9+JAUHhMfx12tBAj6L0vLTgioGPIzQ8defUgcYWZrO686OWAwSUqDY8dp2RwkvcdDz0JNFFCmBxu3kljgKFWbD6OurWBELT6jd48p+OAUZfMbv2ZhEBgERhMzv4Y4/CwsWa77j78WOWAsESJfc79yaTA4XYr3m78SGTAsiZbfn7sN+SRE7kr/m67JtLAUG3+LSy5iLZH9wt0UBAXWNzfDHlHQBAk6S1PPam0gFg7TXvJl9q2xqAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==" type="audio/wav">
+            Your browser does not support the audio element.
+        </audio>
+    </div>
+</body>
+</html>

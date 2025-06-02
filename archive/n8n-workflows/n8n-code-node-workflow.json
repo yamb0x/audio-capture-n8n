@@ -1,0 +1,430 @@
+{
+  "name": "Enhanced Audio Capture to Notion (Code Nodes)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meeting-audio",
+        "responseMode": "onReceived",
+        "responseData": "success",
+        "options": {}
+      },
+      "id": "webhook-audio-receiver",
+      "name": "Webhook - Audio Receiver",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Session Aggregator - Collects audio chunks by session\nconst data = $input.first().json;\nconst sessionId = data.recordingSessionId;\n\n// Get or initialize static data for session storage\nconst staticData = $getWorkflowStaticData('node');\nif (!staticData.sessions) {\n  staticData.sessions = {};\n}\n\n// Initialize session if first chunk\nif (data.isFirstChunk) {\n  staticData.sessions[sessionId] = {\n    sessionId: sessionId,\n    meetingId: data.meetingId,\n    meetingUrl: data.meetingUrl,\n    title: data.title,\n    source: data.source,\n    recordingType: data.recordingType,\n    startTime: data.timestamp,\n    chunks: [],\n    isComplete: false\n  };\n  console.log(`[SESSION] Started: ${sessionId}`);\n}\n\n// Add chunk to session\nif (staticData.sessions[sessionId]) {\n  staticData.sessions[sessionId].chunks.push({\n    chunkIndex: data.chunkIndex,\n    audio: data.audio,\n    timestamp: data.timestamp,\n    duration: data.duration\n  });\n  \n  console.log(`[SESSION] Added chunk ${data.chunkIndex} to ${sessionId}`);\n  \n  // Check if session is complete\n  if (data.isLastChunk) {\n    staticData.sessions[sessionId].isComplete = true;\n    staticData.sessions[sessionId].endTime = data.timestamp;\n    \n    // Calculate total duration\n    const totalDuration = staticData.sessions[sessionId].chunks.reduce(\n      (sum, chunk) => sum + chunk.duration, 0\n    );\n    staticData.sessions[sessionId].totalDuration = totalDuration;\n    \n    console.log(`[SESSION] Completed: ${sessionId} - ${totalDuration}s`);\n    \n    // Return complete session for processing\n    const completeSession = { ...staticData.sessions[sessionId] };\n    \n    // Clean up completed session\n    delete staticData.sessions[sessionId];\n    \n    return [completeSession];\n  }\n}\n\n// Return empty array if session not complete (stops workflow)\nreturn [];"
+      },
+      "id": "session-aggregator",
+      "name": "Session Aggregator",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.isComplete}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-complete",
+      "name": "Session Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare and transcribe audio chunks\nconst session = $input.first().json;\n\n// Sort chunks by index\nconst sortedChunks = session.chunks.sort((a, b) => a.chunkIndex - b.chunkIndex);\n\n// For demo purposes, create a mock transcription\n// In production, you would call OpenAI Whisper API for each chunk\nlet allTranscriptions = [];\n\nfor (let i = 0; i < sortedChunks.length; i++) {\n  const chunk = sortedChunks[i];\n  \n  // Mock transcription - replace this with actual Whisper API call\n  allTranscriptions.push(`This is a transcription of audio chunk ${chunk.chunkIndex} from a ${session.recordingType} recording on ${session.source}. The audio contains conversation and discussion relevant to the meeting topic.`);\n}\n\n// Combine all transcriptions\nconst fullTranscription = allTranscriptions.join(' ');\n\n// Return session with transcription\nconst result = {\n  sessionId: session.sessionId,\n  fullTranscription: fullTranscription,\n  metadata: {\n    meetingId: session.meetingId,\n    title: session.title,\n    source: session.source,\n    recordingType: session.recordingType,\n    totalDuration: session.totalDuration,\n    totalChunks: sortedChunks.length,\n    meetingUrl: session.meetingUrl\n  },\n  transcriptionChunks: sortedChunks.length\n};\n\nreturn [result];"
+      },
+      "id": "transcribe-audio",
+      "name": "Transcribe Audio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"model\": \"gpt-4\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an expert meeting analyst. Analyze the transcription and extract structured information.\\n\\nFor {{$json.metadata.recordingType}} recordings from {{$json.metadata.source}}, extract:\\n\\n1. **Executive Summary** (2-3 sentences)\\n2. **Main Topics** (key discussion points)\\n3. **Key Decisions** (important conclusions)\\n4. **Action Items** (tasks with owners and deadlines if mentioned)\\n5. **Participants** (speakers identified in transcription)\\n6. **Questions** (items needing follow-up)\\n7. **Next Steps** (planned actions)\\n8. **Meeting Type** (standup, planning, review, etc.)\\n9. **Priority Level** (high, medium, low)\\n10. **Tags** (relevant keywords)\\n\\nReturn ONLY a valid JSON object in this exact format:\\n{\\n  \\\"executiveSummary\\\": \\\"Brief summary here\\\",\\n  \\\"mainTopics\\\": [\\\"topic1\\\", \\\"topic2\\\"],\\n  \\\"keyDecisions\\\": [\\\"decision1\\\", \\\"decision2\\\"],\\n  \\\"actionItems\\\": [{\\\"task\\\": \\\"description\\\", \\\"owner\\\": \\\"person\\\", \\\"deadline\\\": \\\"date or null\\\"}],\\n  \\\"participants\\\": [\\\"person1\\\", \\\"person2\\\"],\\n  \\\"questions\\\": [\\\"question1\\\", \\\"question2\\\"],\\n  \\\"nextSteps\\\": [\\\"step1\\\", \\\"step2\\\"],\\n  \\\"meetingType\\\": \\\"type\\\",\\n  \\\"priorityLevel\\\": \\\"medium\\\",\\n  \\\"followUpRequired\\\": true,\\n  \\\"tags\\\": [\\\"tag1\\\", \\\"tag2\\\"]\\n}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this {{$json.metadata.recordingType}} transcription from {{$json.metadata.source}}:\\n\\nTitle: {{$json.metadata.title}}\\nDuration: {{$json.metadata.totalDuration}} seconds\\n\\nTranscription:\\n{{$json.fullTranscription}}\"\n    }\n  ],\n  \"temperature\": 0.2,\n  \"max_tokens\": 1500\n}"
+      },
+      "id": "ai-analyzer",
+      "name": "AI Content Analyzer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI analysis and prepare for Notion\nconst transcriptionData = $node[\"Transcribe Audio\"].json;\nconst aiResponse = $input.first().json;\n\nlet analysis;\ntry {\n  // Extract content from OpenAI API response\n  const content = aiResponse.choices[0].message.content;\n  // Clean the response and parse JSON\n  const cleanResponse = content.replace(/```json\\s*|\\s*```/g, '').trim();\n  analysis = JSON.parse(cleanResponse);\n  console.log('[NOTION] Successfully parsed AI analysis');\n} catch (error) {\n  console.error('Error parsing AI analysis:', error);\n  console.error('AI Response:', JSON.stringify(aiResponse, null, 2));\n  // Fallback structure\n  analysis = {\n    executiveSummary: \"Analysis parsing failed - raw transcription available\",\n    mainTopics: [\"Topic extraction failed\"],\n    keyDecisions: [\"Decision extraction failed\"],\n    actionItems: [{task: \"Review transcription manually\", owner: \"Team\", deadline: null}],\n    participants: [\"Unknown participants\"],\n    questions: [\"Manual review required\"],\n    nextSteps: [\"Review and process manually\"],\n    meetingType: \"unknown\",\n    priorityLevel: \"medium\",\n    followUpRequired: true,\n    tags: [\"needs-review\"]\n  };\n}\n\nconst metadata = transcriptionData.metadata;\n\n// Prepare comprehensive Notion data\nconst notionData = {\n  // Page Properties\n  title: metadata.title || `${metadata.source} Recording - ${new Date().toLocaleDateString()}`,\n  recordingDate: new Date().toISOString().split('T')[0],\n  platform: metadata.source,\n  recordingType: metadata.recordingType,\n  duration: `${Math.round(metadata.totalDuration / 60)} minutes`,\n  sessionId: transcriptionData.sessionId,\n  \n  // Analysis Results\n  executiveSummary: analysis.executiveSummary,\n  mainTopics: analysis.mainTopics || [],\n  keyDecisions: analysis.keyDecisions || [],\n  actionItems: analysis.actionItems || [],\n  participants: analysis.participants || [],\n  questions: analysis.questions || [],\n  nextSteps: analysis.nextSteps || [],\n  \n  // Classification\n  meetingType: analysis.meetingType || \"unknown\",\n  priorityLevel: analysis.priorityLevel || \"medium\",\n  followUpRequired: analysis.followUpRequired || false,\n  tags: [...(analysis.tags || []), metadata.source, metadata.recordingType].filter((tag, index, self) => self.indexOf(tag) === index),\n  \n  // Full Content\n  fullTranscription: transcriptionData.fullTranscription,\n  \n  // Metadata\n  originalUrl: metadata.meetingUrl || '',\n  createdAt: new Date().toISOString()\n};\n\nconsole.log(`[NOTION] Prepared data for: ${notionData.title}`);\n\nreturn [notionData];"
+      },
+      "id": "prepare-notion",
+      "name": "Prepare Notion Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 200]
+    },
+    {
+      "parameters": {
+        "resource": "page",
+        "operation": "create",
+        "databaseId": "YOUR_NOTION_DATABASE_ID",
+        "title": "={{$json.title}}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Date",
+              "date": "={{$json.recordingDate}}"
+            },
+            {
+              "key": "Platform", 
+              "select": "={{$json.platform}}"
+            },
+            {
+              "key": "Type",
+              "select": "={{$json.recordingType}}"
+            },
+            {
+              "key": "Duration",
+              "richText": "={{$json.duration}}"
+            },
+            {
+              "key": "Priority",
+              "select": "={{$json.priorityLevel}}"
+            },
+            {
+              "key": "Follow-up Required",
+              "checkbox": "={{$json.followUpRequired}}"
+            },
+            {
+              "key": "Tags",
+              "multiSelect": "={{$json.tags}}"
+            },
+            {
+              "key": "Participants",
+              "richText": "={{$json.participants.join(', ')}}"
+            },
+            {
+              "key": "Session ID",
+              "richText": "={{$json.sessionId}}"
+            }
+          ]
+        },
+        "pageContent": [
+          {
+            "type": "heading_1",
+            "heading_1": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "📋 Executive Summary"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "paragraph",
+            "paragraph": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "={{$json.executiveSummary}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "heading_2",
+            "heading_2": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "🎯 Main Topics"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "bulleted_list_item",
+            "bulleted_list_item": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "={{$json.mainTopics.join('\\n• ')}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "heading_2",
+            "heading_2": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "✅ Key Decisions"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "bulleted_list_item",
+            "bulleted_list_item": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "={{$json.keyDecisions.join('\\n• ')}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "heading_2",
+            "heading_2": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "📝 Action Items"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "to_do",
+            "to_do": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "={{$json.actionItems.map(item => `${item.task} (${item.owner})${item.deadline ? ' - Due: ' + item.deadline : ''}`).join('\\n☐ ')}}"
+                  }
+                }
+              ],
+              "checked": false
+            }
+          },
+          {
+            "type": "heading_2",
+            "heading_2": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "❓ Questions & Follow-ups"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "bulleted_list_item",
+            "bulleted_list_item": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "={{$json.questions.join('\\n• ')}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "heading_2",
+            "heading_2": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "⏭️ Next Steps"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "numbered_list_item",
+            "numbered_list_item": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "={{$json.nextSteps.join('\\n1. ')}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "divider",
+            "divider": {}
+          },
+          {
+            "type": "toggle",
+            "toggle": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "📄 Full Transcription"
+                  }
+                }
+              ],
+              "children": [
+                {
+                  "type": "paragraph",
+                  "paragraph": {
+                    "text": [
+                      {
+                        "type": "text",
+                        "text": {
+                          "content": "={{$json.fullTranscription}}"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "callout",
+            "callout": {
+              "text": [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "🔗 Original Source: ={{$json.originalUrl}}\\n🆔 Session ID: ={{$json.sessionId}}\\n📅 Created: ={{$json.createdAt}}"
+                  }
+                }
+              ],
+              "icon": {
+                "emoji": "ℹ️"
+              }
+            }
+          }
+        ]
+      },
+      "id": "create-notion-page",
+      "name": "Create Notion Page",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [1560, 200]
+    }
+  ],
+  "connections": {
+    "Webhook - Audio Receiver": {
+      "main": [
+        [
+          {
+            "node": "Session Aggregator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Session Aggregator": {
+      "main": [
+        [
+          {
+            "node": "Session Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Session Complete?": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Audio": {
+      "main": [
+        [
+          {
+            "node": "AI Content Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Content Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Prepare Notion Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Notion Data": {
+      "main": [
+        [
+          {
+            "node": "Create Notion Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveExecutionProgress": true,
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "timezone": "UTC"
+  },
+  "staticData": null,
+  "meta": {
+    "instanceId": "enhanced-audio-processor-code"
+  },
+  "tags": []
+}

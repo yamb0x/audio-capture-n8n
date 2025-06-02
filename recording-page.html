@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Audio Capture - Full Page</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+    }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+    
+    .status-indicator.ready { background-color: #4CAF50; }
+    .status-indicator.recording { 
+      background-color: #ff4444; 
+      animation: pulse 1.5s infinite;
+    }
+    .status-indicator.error { background-color: #f44336; }
+    
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    
+    button {
+      padding: 12px 24px;
+      margin: 10px 5px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .btn-permission {
+      background: #ff9800;
+      color: white;
+    }
+    
+    .btn-start {
+      background: #4CAF50;
+      color: white;
+    }
+    
+    .btn-stop {
+      background: #f44336;
+      color: white;
+    }
+    
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 20px 0;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    
+    input:focus {
+      border-color: #4CAF50;
+      outline: none;
+    }
+    
+    .info-box {
+      background: #e8f5e9;
+      border-left: 4px solid #4CAF50;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    
+    .error-box {
+      background: #ffebee;
+      border-left: 4px solid #f44336;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    
+    .audio-levels {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 6px;
+      display: none;
+    }
+    
+    .audio-levels.active {
+      display: block;
+    }
+    
+    .level-bar {
+      height: 20px;
+      background: #ddd;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .level-fill {
+      height: 100%;
+      background: #4CAF50;
+      width: 0%;
+      transition: width 0.1s ease;
+    }
+    
+    .instructions {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>
+      <span class="status-indicator ready" id="statusIndicator"></span>
+      Audio Capture for Arc Browser
+    </h1>
+    
+    <div class="instructions">
+      <strong>📍 Arc Browser Users:</strong> This full-page version works better with Arc's permission system. Follow the steps below to get started.
+    </div>
+    
+    <div id="statusMessage" class="info-box">
+      Ready to start recording
+    </div>
+    
+    <input type="text" 
+           id="webhookUrl" 
+           placeholder="https://yambo-studio.app.n8n.cloud/webhook/meeting-audio"
+           value="https://yambo-studio.app.n8n.cloud/webhook/meeting-audio">
+    
+    <div>
+      <button id="btnPermission" class="btn-permission">
+        🎤 Request Microphone Permission
+      </button>
+      <button id="btnStart" class="btn-start" disabled>
+        ▶️ Start Recording
+      </button>
+      <button id="btnStop" class="btn-stop" style="display:none;">
+        ⏹️ Stop Recording
+      </button>
+    </div>
+    
+    <div id="audioLevels" class="audio-levels">
+      <h3>Audio Level Monitor</h3>
+      <div class="level-bar">
+        <div class="level-fill" id="levelFill"></div>
+      </div>
+      <p>Current Level: <span id="levelValue">0</span>%</p>
+    </div>
+    
+    <div class="info-box" style="margin-top: 30px;">
+      <h3>How to use:</h3>
+      <ol>
+        <li>Click "Request Microphone Permission"</li>
+        <li>Allow microphone access when Arc prompts you</li>
+        <li>Click "Start Recording" to begin</li>
+        <li>Audio will be sent to your webhook every 30 seconds</li>
+        <li>Click "Stop Recording" when done</li>
+      </ol>
+    </div>
+  </div>
+  
+  <script src="recording-page.js"></script>
+</body>
+</html>

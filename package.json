@@ -1,0 +1,48 @@
+{
+  "name": "audio-capture-n8n",
+  "version": "1.0.0",
+  "description": "🎤 Transform any browser tab into an intelligent audio recording system with automated transcription and AI analysis via n8n",
+  "main": "dashboard-server.js",
+  "scripts": {
+    "start": "node launcher.js",
+    "dashboard": "node dashboard-server.js",
+    "auto": "node launcher.js --start",
+    "test-webhook": "node simple-webhook-server.js"
+  },
+  "keywords": [
+    "chrome-extension",
+    "audio-capture",
+    "n8n",
+    "transcription",
+    "openai",
+    "whisper",
+    "meeting-notes",
+    "automation",
+    "dashboard",
+    "zoom",
+    "google-meet",
+    "teams",
+    "youtube",
+    "spotify",
+    "discord",
+    "ai-analysis",
+    "notion-integration"
+  ],
+  "author": "Yambo Studio",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/audio-capture-n8n.git"
+  },
+  "homepage": "https://github.com/yourusername/audio-capture-n8n#readme",
+  "bugs": {
+    "url": "https://github.com/yourusername/audio-capture-n8n/issues"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "node-fetch": "^2.7.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
