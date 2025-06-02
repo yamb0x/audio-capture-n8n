@@ -32,11 +32,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/audio-capture-n8n.git"
+    "url": "https://github.com/yamb0x/audio-capture-n8n.git"
   },
-  "homepage": "https://github.com/yourusername/audio-capture-n8n#readme",
+  "homepage": "https://github.com/yamb0x/audio-capture-n8n#readme",
   "bugs": {
-    "url": "https://github.com/yourusername/audio-capture-n8n/issues"
+    "url": "https://github.com/yamb0x/audio-capture-n8n/issues"
   },
   "dependencies": {
     "express": "^5.1.0",

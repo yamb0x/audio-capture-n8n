@@ -38,7 +38,7 @@ Capture audio from **any browser tab** (Zoom calls, YouTube videos, Spotify, Dis
 ### 1. Install Chrome Extension
 ```bash
 # Clone this repository
-git clone https://github.com/yourusername/audio-capture-n8n.git
+git clone https://github.com/yamb0x/audio-capture-n8n.git
 cd audio-capture-n8n
 
 # Install dependencies
@@ -241,6 +241,6 @@ If this project helps you automate your audio workflows, please give it a star! 
 
 **Built with ❤️ for seamless meeting transcription and audio analysis**
 
-[![GitHub stars](https://img.shields.io/github/stars/yourusername/audio-capture-n8n?style=social)](https://github.com/yourusername/audio-capture-n8n/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/yourusername/audio-capture-n8n?style=social)](https://github.com/yourusername/audio-capture-n8n/network/members)
-[![GitHub issues](https://img.shields.io/github/issues/yourusername/audio-capture-n8n)](https://github.com/yourusername/audio-capture-n8n/issues)
+[![GitHub stars](https://img.shields.io/github/stars/yamb0x/audio-capture-n8n?style=social)](https://github.com/yamb0x/audio-capture-n8n/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/yamb0x/audio-capture-n8n?style=social)](https://github.com/yamb0x/audio-capture-n8n/network/members)
+[![GitHub issues](https://img.shields.io/github/issues/yamb0x/audio-capture-n8n)](https://github.com/yamb0x/audio-capture-n8n/issues)
