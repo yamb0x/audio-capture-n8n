@@ -313,6 +313,10 @@
           <option value="system">🔊 System Audio Only</option>
           <option value="both">🎵 Both (Microphone + System)</option>
         </select>
+        <div style="font-size: 12px; color: #666; margin-top: 5px;">
+          <strong>System Audio:</strong> Captures audio from your browser tab (YouTube, meetings, etc.)<br>
+          <strong>Note:</strong> System audio requires a regular website - won't work on Chrome internal pages
+        </div>
       </div>
       
       <div class="control-group">
@@ -347,12 +351,21 @@
     <div class="help-section">
       <h3>How to use:</h3>
       <ul>
-        <li>Select your preferred audio source</li>
-        <li>Click "Start Recording" to begin</li>
-        <li>For system audio, select the window/tab you want to record</li>
+        <li><strong>Microphone Only:</strong> Captures your voice through the microphone</li>
+        <li><strong>System Audio Only:</strong> Captures audio from browser tabs (YouTube, meetings, etc.)</li>
+        <li><strong>Both:</strong> Captures both microphone and system audio mixed together</li>
+        <li>For system audio, navigate to the website you want to record first</li>
+        <li>Click "Start Recording" and allow necessary permissions</li>
         <li>Minimize this window - recording continues in background</li>
         <li>Audio is automatically sent to your webhook every 30 seconds</li>
         <li>Click "Stop Recording" when done</li>
+      </ul>
+      
+      <h3>🚨 System Audio Requirements:</h3>
+      <ul>
+        <li>Must be on a regular website (not chrome:// pages)</li>
+        <li>Examples of supported sites: YouTube, Google Meet, Zoom, any website</li>
+        <li>Examples of unsupported: Chrome settings, extension pages, new tab page</li>
       </ul>
     </div>
   </div>

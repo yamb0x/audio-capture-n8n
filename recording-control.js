@@ -56,7 +56,47 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Set up audio visualizer
   setupVisualizer();
+  
+  // Check initial audio source availability
+  checkAudioSourceAvailability();
 });
+
+// Check audio source availability and show guidance
+async function checkAudioSourceAvailability() {
+  const selectedSource = audioSourceSelect.value;
+  
+  if (selectedSource === 'microphone') {
+    hideError();
+    return;
+  }
+  
+  // Check system audio availability
+  const availability = await AudioCaptureHandler.checkSystemAudioAvailability();
+  console.log('[CONTROL CENTER] Audio availability check:', availability);
+  
+  if (!availability.available) {
+    let message = `System audio not available: ${availability.reason}`;
+    if (availability.recommendation) {
+      message += `\n\n💡 ${availability.recommendation}`;
+    }
+    if (availability.tabUrl) {
+      message += `\n\nCurrent page: ${availability.tabUrl}`;
+    }
+    showError(message);
+    
+    // Disable start button
+    startBtn.disabled = true;
+    startBtn.textContent = 'System Audio Not Available';
+  } else {
+    hideError();
+    startBtn.disabled = false;
+    startBtn.innerHTML = '<span>▶️</span><span>Start Recording</span>';
+    
+    if (availability.message) {
+      showInfo(availability.message);
+    }
+  }
+}
 
 // Load saved preferences
 function loadPreferences() {
@@ -102,6 +142,9 @@ function setupEventListeners() {
   
   // Stop button
   stopBtn.addEventListener('click', stopRecording);
+  
+  // Audio source change - check availability
+  audioSourceSelect.addEventListener('change', checkAudioSourceAvailability);
   
   // Close button
   closeBtn.addEventListener('click', () => {
@@ -170,26 +213,73 @@ async function startRecording() {
     console.log('[CONTROL CENTER] Getting audio stream for source:', audioSource);
     
     try {
+      // Check if we're on a supported page first
+      if (audioSource !== 'microphone') {
+        const availability = await AudioCaptureHandler.checkSystemAudioAvailability();
+        if (!availability.available) {
+          let errorMsg = `Cannot capture system audio: ${availability.reason}`;
+          if (availability.recommendation) {
+            errorMsg += `\n\n💡 Solution: ${availability.recommendation}`;
+          }
+          showError(errorMsg);
+          return;
+        }
+      }
+      
       audioStream = await audioCaptureHandler.getAudioStream(audioSource, currentTab.id);
       console.log('[CONTROL CENTER] Got audio stream');
     } catch (error) {
       console.error('[CONTROL CENTER] Failed to get audio stream:', error);
       
-      // Handle user cancellation
+      // Handle specific error cases
       if (error.name === 'NotAllowedError') {
-        showError('Permission denied. Please allow audio access and try again.');
+        if (audioSource === 'system' || audioSource === 'both') {
+          showError('Screen sharing permission denied.\n\n💡 To capture system audio:\n1. Click "Start Recording" again\n2. Select "Share tab audio" or "Share system audio"\n3. Choose the tab/window you want to record');
+        } else {
+          showError('Microphone permission denied.\n\n💡 Please allow microphone access and try again.');
+        }
+        return;
+      }
+      
+      if (error.message.includes('Chrome pages cannot be captured')) {
+        showError('Cannot capture audio from Chrome internal pages.\n\n💡 Please navigate to a regular website (like YouTube, Google Meet, etc.) and try again.');
         return;
       }
       
       // Try fallback to microphone
       if (audioSource !== 'microphone') {
-        showError(`Failed to capture ${audioSource}: ${error.message}. Falling back to microphone.`);
+        showError(`Failed to capture ${audioSource}: ${error.message}\n\nFalling back to microphone only...`);
         audioSourceSelect.value = 'microphone';
-        audioStream = await audioCaptureHandler.getAudioStream('microphone', currentTab.id);
+        
+        setTimeout(async () => {
+          try {
+            audioStream = await audioCaptureHandler.getAudioStream('microphone', currentTab.id);
+            hideError();
+            // Continue with recording setup...
+            setupRecordingWithStream();
+          } catch (fallbackError) {
+            showError(`Microphone fallback also failed: ${fallbackError.message}`);
+            return;
+          }
+        }, 1000);
+        return;
       } else {
-        throw error;
+        showError(`Failed to start recording: ${error.message}`);
+        return;
       }
     }
+    
+    setupRecordingWithStream();
+  } catch (error) {
+    console.error('[CONTROL CENTER] Failed to start recording:', error);
+    showError(`Failed to start recording: ${error.message}`);
+  }
+}
+
+// Continue recording setup after getting stream
+function setupRecordingWithStream() {
+  try {
+    const currentAudioSource = audioSourceSelect.value;
     
     // Set up audio recording
     setupMediaRecorder();
@@ -219,13 +309,13 @@ async function startRecording() {
     // Save state
     chrome.storage.local.set({
       isRecording: true,
-      activeRecordingSource: audioSource,
+      activeRecordingSource: currentAudioSource,
       recordingData: {
         recordingSessionId,
         meetingId,
         meetingUrl,
         startTime: startTime.toISOString(),
-        audioSource,
+        audioSource: currentAudioSource,
         chunkCounter: 0,
         isFirstChunk: true
       }
@@ -465,7 +555,19 @@ function updateConnectionStatus(status, success) {
 
 // Show error message
 function showError(message) {
-  errorMessage.textContent = message;
+  errorMessage.innerHTML = message.replace(/\n/g, '<br>');
+  errorMessage.style.background = '#ffebee';
+  errorMessage.style.borderColor = '#ef5350';
+  errorMessage.style.color = '#c62828';
+  errorMessage.classList.add('active');
+}
+
+// Show info message
+function showInfo(message) {
+  errorMessage.innerHTML = message.replace(/\n/g, '<br>');
+  errorMessage.style.background = '#e3f2fd';
+  errorMessage.style.borderColor = '#90caf9';
+  errorMessage.style.color = '#1565c0';
   errorMessage.classList.add('active');
 }
 

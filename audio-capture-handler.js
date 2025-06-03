@@ -213,35 +213,83 @@ class AudioCaptureHandler {
    * Check if system audio is available
    */
   static async checkSystemAudioAvailability() {
-    // Check if tab capture API is available
-    if (!chrome.tabCapture) {
-      return {
-        available: false,
-        reason: 'Tab capture API not available'
-      };
-    }
-
-    // Check if we're in a context that can use tab capture
     try {
-      // Tab capture can only be called from a popup or tab
+      // Get current tab info
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tabs || tabs.length === 0) {
         return {
           available: false,
-          reason: 'No active tab found'
+          reason: 'No active tab found',
+          recommendation: 'Open a web page first'
+        };
+      }
+
+      const currentTab = tabs[0];
+      const url = currentTab.url;
+
+      // Check for unsupported URLs
+      if (this.isUnsupportedUrl(url)) {
+        return {
+          available: false,
+          reason: 'Chrome internal pages cannot be captured',
+          recommendation: 'Navigate to a regular website (like YouTube, Google Meet, etc.) to capture system audio',
+          tabUrl: url
+        };
+      }
+
+      // Check if getDisplayMedia is available (preferred method)
+      if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+        return {
+          available: true,
+          method: 'screen-share',
+          tabId: currentTab.id,
+          message: 'System audio will use screen sharing (recommended)'
+        };
+      }
+
+      // Check if tab capture API is available (fallback)
+      if (!chrome.tabCapture) {
+        return {
+          available: false,
+          reason: 'Browser does not support audio capture',
+          recommendation: 'Use microphone only'
         };
       }
 
       return {
         available: true,
-        tabId: tabs[0].id
+        method: 'tab-capture',
+        tabId: currentTab.id,
+        message: 'System audio will use tab capture (may mute tab)'
       };
+
     } catch (error) {
       return {
         available: false,
-        reason: error.message
+        reason: error.message,
+        recommendation: 'Try refreshing the page or use microphone only'
       };
     }
+  }
+
+  /**
+   * Check if URL is unsupported for audio capture
+   */
+  static isUnsupportedUrl(url) {
+    if (!url) return true;
+    
+    const unsupportedPrefixes = [
+      'chrome://',
+      'chrome-extension://',
+      'edge://',
+      'about:',
+      'moz-extension://',
+      'safari-extension://',
+      'chrome-search://',
+      'chrome-devtools://'
+    ];
+
+    return unsupportedPrefixes.some(prefix => url.startsWith(prefix));
   }
 }
 
