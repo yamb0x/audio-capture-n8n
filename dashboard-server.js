@@ -387,6 +387,108 @@ app.post('/api/test-webhook', async (req, res) => {
 });
 
 /**
+ * Diagnostic endpoint - detailed session analysis
+ */
+app.get('/api/diagnostics/:sessionId', (req, res) => {
+  const { sessionId } = req.params;
+  const session = meetingData.sessions.get(sessionId);
+  
+  if (!session) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+  
+  // Analyze session
+  const sessionChunks = meetingData.chunks.filter(c => c.recordingSessionId === sessionId);
+  const sessionWebhooks = meetingData.webhookAttempts.filter(w => w.sessionId === sessionId);
+  
+  // Calculate diagnostics
+  const duration = (Date.now() - session.startTime) / 1000; // in seconds
+  const expectedChunks = Math.ceil(duration / 30);
+  const missingChunks = [];
+  for (let i = 0; i < expectedChunks; i++) {
+    if (!sessionChunks.find(c => c.chunkIndex === i)) {
+      missingChunks.push(i);
+    }
+  }
+  
+  const failedWebhooks = sessionWebhooks.filter(w => !w.success);
+  const avgResponseTime = sessionWebhooks
+    .filter(w => w.responseTime)
+    .reduce((sum, w) => sum + w.responseTime, 0) / sessionWebhooks.length || 0;
+  
+  res.json({
+    session: {
+      id: sessionId,
+      startTime: session.startTime,
+      duration: (duration / 60).toFixed(1) + ' minutes',
+      status: session.isComplete ? 'complete' : 'active',
+      totalChunks: sessionChunks.length
+    },
+    analysis: {
+      expectedChunks,
+      receivedChunks: sessionChunks.length,
+      missingChunks,
+      missingCount: missingChunks.length,
+      completeness: ((sessionChunks.length / expectedChunks) * 100).toFixed(1) + '%'
+    },
+    webhooks: {
+      total: sessionWebhooks.length,
+      successful: sessionWebhooks.filter(w => w.success).length,
+      failed: failedWebhooks.length,
+      avgResponseTime: avgResponseTime.toFixed(0) + 'ms',
+      failures: failedWebhooks.map(f => ({
+        chunkIndex: f.chunkIndex,
+        error: f.error,
+        timestamp: f.timestamp
+      }))
+    },
+    chunks: sessionChunks.map(c => ({
+      index: c.chunkIndex,
+      size: c.audioSize,
+      timestamp: c.timestamp,
+      webhookSent: !!sessionWebhooks.find(w => w.chunkIndex === c.chunkIndex)
+    }))
+  });
+});
+
+/**
+ * Long recording health check
+ */
+app.get('/api/health/long-recordings', (req, res) => {
+  const longSessions = Array.from(meetingData.sessions.values())
+    .filter(s => {
+      const duration = (Date.now() - s.startTime) / 1000 / 60; // in minutes
+      return duration > 20;
+    });
+  
+  const diagnostics = longSessions.map(session => {
+    const sessionChunks = meetingData.chunks.filter(c => c.recordingSessionId === session.id);
+    const duration = (Date.now() - session.startTime) / 1000; // in seconds
+    const expectedChunks = Math.ceil(duration / 30);
+    const completeness = (sessionChunks.length / expectedChunks) * 100;
+    
+    return {
+      sessionId: session.id,
+      duration: (duration / 60).toFixed(1) + ' minutes',
+      expectedChunks,
+      receivedChunks: sessionChunks.length,
+      completeness: completeness.toFixed(1) + '%',
+      status: completeness > 90 ? 'healthy' : completeness > 70 ? 'degraded' : 'unhealthy'
+    };
+  });
+  
+  res.json({
+    totalLongRecordings: longSessions.length,
+    healthSummary: {
+      healthy: diagnostics.filter(d => d.status === 'healthy').length,
+      degraded: diagnostics.filter(d => d.status === 'degraded').length,
+      unhealthy: diagnostics.filter(d => d.status === 'unhealthy').length
+    },
+    sessions: diagnostics
+  });
+});
+
+/**
  * Health check endpoint
  */
 app.get('/health', (req, res) => {

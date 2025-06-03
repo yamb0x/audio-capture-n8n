@@ -27,6 +27,10 @@ let meetingUrl = null;
 let chunkCounter = 0;
 let isFirstChunk = true;
 
+// Initialize debugger
+const recordingDebugger = new RecordingDebugger();
+console.log('[RECORDING PAGE] Debugger initialized');
+
 // Load saved webhook URL
 const savedUrl = localStorage.getItem('webhookUrl');
 if (savedUrl) {
@@ -137,6 +141,9 @@ btnStart.addEventListener('click', async () => {
     meetingUrl = tab.url;
     
     console.log('[RECORDING PAGE] Recording session:', recordingSessionId);
+    
+    // Start debug tracking
+    recordingDebugger.startSession(recordingSessionId);
     
     // Save webhook URL
     localStorage.setItem('webhookUrl', webhookInput.value);
@@ -285,6 +292,10 @@ async function sendAudioToWebhook(webhookUrl) {
   reader.readAsDataURL(audioBlob);
   reader.onloadend = async () => {
     const base64Audio = reader.result.split(',')[1];
+    const audioSize = base64Audio.length;
+    
+    // Track chunk in debugger
+    recordingDebugger.trackChunk(chunkCounter, audioSize, 30);
     
     const payload = {
       audio: base64Audio,
@@ -302,6 +313,7 @@ async function sendAudioToWebhook(webhookUrl) {
       title: document.title
     };
     
+    const startTime = Date.now();
     try {
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -311,15 +323,22 @@ async function sendAudioToWebhook(webhookUrl) {
         body: JSON.stringify(payload)
       });
       
+      const responseTime = Date.now() - startTime;
+      
       if (response.ok) {
         console.log('[RECORDING PAGE] Audio chunk sent successfully');
+        recordingDebugger.trackWebhookAttempt(chunkCounter, true, null, responseTime);
         chunkCounter++;
         isFirstChunk = false;
       } else {
-        console.error('[RECORDING PAGE] Webhook error:', response.status);
+        const errorText = await response.text();
+        console.error('[RECORDING PAGE] Webhook error:', response.status, errorText);
+        recordingDebugger.trackWebhookAttempt(chunkCounter, false, `HTTP ${response.status}: ${errorText}`, responseTime);
       }
     } catch (error) {
       console.error('[RECORDING PAGE] Error sending to webhook:', error);
+      recordingDebugger.trackWebhookAttempt(chunkCounter, false, error.message);
+      recordingDebugger.trackError(error, 'webhook_send');
     }
   };
 }
@@ -352,12 +371,35 @@ function stopRecording() {
     audioContext.close();
   }
   
+  // Generate debug report
+  const report = recordingDebugger.generateReport();
+  console.log('[RECORDING PAGE] Debug report generated:', report);
+  
+  // Show summary in status
+  let statusMessage = '✅ Recording stopped.';
+  if (report.errors.length > 0) {
+    statusMessage += ` ⚠️ ${report.errors.length} errors detected.`;
+  }
+  if (report.chunks.missing > 0) {
+    statusMessage += ` Missing ${report.chunks.missing} chunks.`;
+  }
+  statusMessage += ' Click "Start Recording" to begin a new session.';
+  
   // Update UI
-  updateStatus('ready', '✅ Recording stopped. Click "Start Recording" to begin a new session.');
+  updateStatus('ready', statusMessage);
   btnStart.style.display = 'inline-block';
   btnStop.style.display = 'none';
   webhookInput.disabled = false;
   audioLevels.classList.remove('active');
+  
+  // Add export button if there were issues
+  if (report.errors.length > 0 || report.analysis.length > 0) {
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = 'Export Debug Log';
+    exportBtn.style.marginTop = '10px';
+    exportBtn.onclick = () => recordingDebugger.exportDebugData();
+    document.querySelector('.container').appendChild(exportBtn);
+  }
   
   window.isRecordingStopping = false;
 }
