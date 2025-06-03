@@ -16,7 +16,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "popup-simple.html",
     "default_icon": {
       "16": "icon.png",
       "48": "icon.png",
@@ -30,7 +30,10 @@
         "audio-capture-handler.js",
         "recording-page.html",
         "recording-page.js",
-        "recording-debug.js"
+        "recording-debug.js",
+        "recording-control.html",
+        "recording-control.js",
+        "popup-launcher.js"
       ],
       "matches": ["<all_urls>"]
     }

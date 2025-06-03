@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Audio Capture Control Center</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      padding: 30px;
+    }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .title {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      color: #333;
+    }
+    
+    .status-badge {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .status-badge.ready {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+    
+    .status-badge.recording {
+      background: #ffebee;
+      color: #c62828;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+      padding: 5px;
+      border-radius: 5px;
+      transition: background 0.2s;
+    }
+    
+    .close-btn:hover {
+      background: #f0f0f0;
+    }
+    
+    .recording-info {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 8px;
+      padding: 15px 20px;
+      margin-bottom: 25px;
+      display: none;
+    }
+    
+    .recording-info.active {
+      display: block;
+    }
+    
+    .recording-info h3 {
+      margin: 0 0 10px 0;
+      color: #856404;
+      font-size: 16px;
+    }
+    
+    .recording-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 10px;
+    }
+    
+    .stat {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 3px;
+    }
+    
+    .stat-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .controls-section {
+      margin-bottom: 30px;
+    }
+    
+    .control-group {
+      margin-bottom: 20px;
+    }
+    
+    .control-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #555;
+    }
+    
+    .control-group select,
+    .control-group input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.2s;
+    }
+    
+    .control-group select:focus,
+    .control-group input:focus {
+      outline: none;
+      border-color: #4CAF50;
+    }
+    
+    .control-group select:disabled,
+    .control-group input:disabled {
+      background: #f5f5f5;
+      cursor: not-allowed;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 15px;
+      margin-top: 25px;
+    }
+    
+    .btn {
+      flex: 1;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .btn-start {
+      background: #4CAF50;
+      color: white;
+    }
+    
+    .btn-start:hover:not(:disabled) {
+      background: #45a049;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+    }
+    
+    .btn-stop {
+      background: #f44336;
+      color: white;
+    }
+    
+    .btn-stop:hover {
+      background: #e53935;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .audio-visualizer {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      display: none;
+    }
+    
+    .audio-visualizer.active {
+      display: block;
+    }
+    
+    .visualizer-canvas {
+      width: 100%;
+      height: 100px;
+      background: #fff;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    
+    .help-section {
+      margin-top: 40px;
+      padding-top: 30px;
+      border-top: 2px solid #f0f0f0;
+    }
+    
+    .help-section h3 {
+      margin: 0 0 15px 0;
+      color: #555;
+    }
+    
+    .help-section ul {
+      margin: 0;
+      padding-left: 20px;
+      color: #666;
+      line-height: 1.8;
+    }
+    
+    .minimize-tip {
+      background: #e3f2fd;
+      border: 1px solid #90caf9;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 20px;
+      font-size: 14px;
+      color: #1565c0;
+    }
+    
+    .error-message {
+      background: #ffebee;
+      border: 1px solid #ef5350;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+      color: #c62828;
+      display: none;
+    }
+    
+    .error-message.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">
+        <h1>🎙️ Audio Capture Control Center</h1>
+        <span class="status-badge ready" id="statusBadge">Ready</span>
+      </div>
+      <button class="close-btn" id="closeBtn" title="Close control center">✕</button>
+    </div>
+    
+    <div class="error-message" id="errorMessage"></div>
+    
+    <div class="recording-info" id="recordingInfo">
+      <h3>📍 Recording in Progress</h3>
+      <div class="recording-stats">
+        <div class="stat">
+          <span class="stat-label">Duration</span>
+          <span class="stat-value" id="duration">00:00</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Chunks Sent</span>
+          <span class="stat-value" id="chunksSent">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Audio Source</span>
+          <span class="stat-value" id="activeSource">-</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Status</span>
+          <span class="stat-value" id="connectionStatus">Connected</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="controls-section">
+      <div class="control-group">
+        <label for="audioSource">Audio Source</label>
+        <select id="audioSource">
+          <option value="microphone">🎤 Microphone Only</option>
+          <option value="system">🔊 System Audio Only</option>
+          <option value="both">🎵 Both (Microphone + System)</option>
+        </select>
+      </div>
+      
+      <div class="control-group">
+        <label for="webhookUrl">Webhook URL</label>
+        <input type="text" 
+               id="webhookUrl" 
+               placeholder="http://localhost:5678/webhook/meeting-audio?forward=true"
+               value="http://localhost:5678/webhook/meeting-audio?forward=true">
+      </div>
+      
+      <div class="button-group">
+        <button class="btn btn-start" id="startBtn">
+          <span>▶️</span>
+          <span>Start Recording</span>
+        </button>
+        <button class="btn btn-stop" id="stopBtn" style="display: none;">
+          <span>⏹️</span>
+          <span>Stop Recording</span>
+        </button>
+      </div>
+    </div>
+    
+    <div class="audio-visualizer" id="audioVisualizer">
+      <h3>Audio Levels</h3>
+      <canvas class="visualizer-canvas" id="visualizerCanvas"></canvas>
+    </div>
+    
+    <div class="minimize-tip">
+      💡 <strong>Tip:</strong> You can minimize this window while recording. The recording will continue in the background. Use the extension popup to quickly stop the recording.
+    </div>
+    
+    <div class="help-section">
+      <h3>How to use:</h3>
+      <ul>
+        <li>Select your preferred audio source</li>
+        <li>Click "Start Recording" to begin</li>
+        <li>For system audio, select the window/tab you want to record</li>
+        <li>Minimize this window - recording continues in background</li>
+        <li>Audio is automatically sent to your webhook every 30 seconds</li>
+        <li>Click "Stop Recording" when done</li>
+      </ul>
+    </div>
+  </div>
+  
+  <script src="audio-capture-handler.js"></script>
+  <script src="recording-control.js"></script>
+</body>
+</html>
