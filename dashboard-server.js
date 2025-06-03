@@ -504,175 +504,530 @@ app.get('/health', (req, res) => {
  * Generate dashboard HTML
  */
 function generateDashboardHTML() {
-  return `
-<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meeting Audio Capture Dashboard</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @font-face {
+            font-family: 'Basis Grotesque';
+            src: url('basis-grotesque-regular.woff2') format('woff2'),
+                 url('basis-grotesque-regular-pro.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'Kalice';
+            src: url('Kalice-Regular.woff2') format('woff2'),
+                 url('Kalice-Regular.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'Kalice';
+            src: url('Kalice-Italic.woff2') format('woff2'),
+                 url('Kalice-Italic.woff') format('woff');
+            font-weight: normal;
+            font-style: italic;
+            font-display: swap;
+        }
+
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f7;
-            color: #1d1d1f;
-            line-height: 1.6;
+            font-family: 'Basis Grotesque', monospace, sans-serif;
+            background: #ffffff;
+            color: #000000;
+            line-height: 1.4;
+            font-size: 12px;
         }
+
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 2rem;
+            background: #000000;
+            color: #ffffff;
+            padding: 20px;
             text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border-bottom: 1px solid #000000;
         }
-        .header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
-        .header p { opacity: 0.9; font-size: 1.1rem; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+
+        .header h1 { 
+            font-family: 'Kalice', serif;
+            font-size: 24px; 
+            margin-bottom: 8px; 
+            font-weight: normal;
+        }
+
+        .header p { 
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .live-indicator {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: #ffffff;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 1px solid #000000;
+        }
+
+        .btn {
+            background: #ffffff;
+            color: #000000;
+            border: 1px solid #000000;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-family: 'Basis Grotesque', monospace, sans-serif;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0 4px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover { 
+            background: #000000; 
+            color: #ffffff;
+        }
+
+        .btn-danger { 
+            background: #000000; 
+            color: #ffffff;
+        }
+
+        .btn-danger:hover { 
+            background: #ffffff; 
+            color: #000000;
+        }
+
+        .grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+            gap: 0; 
+            margin-bottom: 20px; 
+            border: 1px solid #000000;
+        }
+
         .card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            border: 1px solid #e5e5e7;
+            background: #ffffff;
+            padding: 20px;
+            border-right: 1px solid #000000;
+            border-bottom: 1px solid #000000;
         }
-        .card h3 { color: #333; margin-bottom: 1rem; font-size: 1.2rem; }
-        .stat { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
-        .stat-label { color: #666; }
-        .stat-value { font-weight: 600; }
+
+        .card:nth-child(even) {
+            background: #f5f5f5;
+        }
+
+        .card h3 { 
+            font-family: 'Kalice', serif;
+            color: #000000; 
+            margin-bottom: 15px; 
+            font-size: 14px;
+            font-weight: normal;
+        }
+
+        .stat { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 8px;
+            font-size: 11px;
+        }
+
+        .stat-label { 
+            color: #666666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value { 
+            font-weight: normal;
+            color: #000000;
+        }
+
         .status-indicator {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border: 1px solid #000000;
+            margin-right: 8px;
+        }
+
+        .status-active { 
+            background: #000000; 
+        }
+
+        .status-completed { 
+            background: #ffffff; 
+        }
+
+        .status-error { 
+            background: #000000; 
+        }
+
+        .main-card {
+            border: 1px solid #000000;
+            background: #ffffff;
+            margin-bottom: 20px;
+        }
+
+        .main-card h3 {
+            font-family: 'Kalice', serif;
+            font-size: 14px;
+            font-weight: normal;
+            padding: 15px 20px;
+            border-bottom: 1px solid #000000;
+            margin: 0;
+        }
+
+        .main-card-content {
+            padding: 20px;
+        }
+
+        .config-card {
+            background: #000000;
+            color: #ffffff;
+            border: 1px solid #000000;
+            margin-bottom: 20px;
+        }
+
+        .config-card h3 {
+            color: #ffffff;
+            padding: 15px 20px;
+            border-bottom: 1px solid #ffffff;
+            font-family: 'Kalice', serif;
+            font-size: 14px;
+            font-weight: normal;
+            margin: 0;
+        }
+
+        .config-content {
+            padding: 20px;
+        }
+
+        .config-url {
+            font-family: 'Basis Grotesque', monospace, sans-serif;
+            font-size: 11px;
+            margin-bottom: 15px;
+            color: #ffffff;
+        }
+
+        .config-note {
+            font-size: 10px;
+            line-height: 1.3;
+            opacity: 0.8;
+        }
+
+        .chunk-item {
+            border-bottom: 1px solid #000000;
+            padding: 15px 0;
+            font-size: 11px;
+        }
+
+        .chunk-item:last-child {
+            border-bottom: none;
+        }
+
+        .chunk-header { 
+            font-weight: normal; 
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chunk-meta { 
+            color: #666666; 
+            font-size: 10px;
+            line-height: 1.3;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border: 1px solid #000000;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: #ffffff;
+            color: #000000;
+        }
+
+        .badge-first { 
+            background: #000000; 
+            color: #ffffff; 
+        }
+
+        .badge-last { 
+            background: #666666; 
+            color: #ffffff; 
+        }
+
+        .badge-middle { 
+            background: #ffffff; 
+            color: #000000; 
+        }
+
+        .no-data {
+            text-align: center;
+            color: #666666;
+            padding: 40px 20px;
+            font-style: italic;
+            font-size: 11px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666666;
+            border-top: 1px solid #000000;
+            margin-top: 40px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Remove emoji dependencies */
+        .icon {
             display: inline-block;
             width: 8px;
             height: 8px;
-            border-radius: 50%;
+            background: currentColor;
             margin-right: 8px;
         }
-        .status-active { background: #34c759; }
-        .status-completed { background: #007aff; }
-        .status-error { background: #ff3b30; }
-        .chunk-item {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
+
+        .icon.system {
+            clip-path: polygon(25% 25%, 75% 25%, 75% 75%, 25% 75%);
         }
-        .chunk-header { font-weight: 600; margin-bottom: 0.5rem; }
-        .chunk-meta { color: #666; font-size: 0.8rem; }
-        .badge {
-            display: inline-block;
-            padding: 0.2rem 0.6rem;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            margin-right: 0.5rem;
+
+        .icon.stats {
+            clip-path: polygon(0 100%, 25% 75%, 50% 85%, 75% 60%, 100% 70%, 100% 100%);
         }
-        .badge-first { background: #d4edda; color: #155724; }
-        .badge-last { background: #f8d7da; color: #721c24; }
-        .badge-middle { background: #e2e3e5; color: #383d41; }
-        .controls {
-            text-align: center;
-            margin-bottom: 2rem;
+
+        .icon.webhook {
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
         }
-        .btn {
-            background: #007aff;
-            color: white;
-            border: none;
-            padding: 0.8rem 1.5rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1rem;
-            margin: 0 0.5rem;
-            transition: background 0.3s;
+
+        .icon.server {
+            clip-path: polygon(0% 20%, 60% 20%, 60% 0%, 100% 50%, 60% 100%, 60% 80%, 0% 80%);
         }
-        .btn:hover { background: #0051d5; }
-        .btn-danger { background: #ff3b30; }
-        .btn-danger:hover { background: #d70015; }
-        .no-data {
-            text-align: center;
-            color: #666;
-            padding: 3rem;
-            font-style: italic;
-        }
-        .live-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            background: #34c759;
+
+        .icon.recording {
             border-radius: 50%;
-            animation: pulse 2s infinite;
-            margin-right: 8px;
         }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+
+        .icon.chunks {
+            clip-path: polygon(20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%);
         }
-        .footer {
-            text-align: center;
-            padding: 2rem;
-            color: #666;
-            border-top: 1px solid #e5e5e7;
-            margin-top: 3rem;
+
+        /* Clean transitions */
+        * {
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        }
+
+        /* Better focus states */
+        button:focus {
+            outline: 2px solid #000000;
+            outline-offset: 2px;
+        }
+
+        /* Grid responsive behavior */
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .card {
+                border-right: none;
+            }
+            
+            .card:last-child {
+                border-bottom: none;
+            }
+        }
+
+        /* Monospace code styling */
+        code {
+            font-family: 'Basis Grotesque', monospace, sans-serif;
+            background: #f5f5f5;
+            padding: 2px 4px;
+            border: 1px solid #000000;
+            font-size: 10px;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🎤 Meeting Audio Capture Dashboard</h1>
-        <p><span class="live-indicator"></span>Monitoring Chrome Extension → n8n Webhook Integration</p>
+        <h1>Meeting Audio Capture Dashboard</h1>
+        <p><span class="live-indicator"></span>Yambo x Claude 2025</p>
     </div>
 
     <div class="container">
         <div class="controls">
-            <button class="btn" onclick="refreshData()">🔄 Refresh Data</button>
-            <button class="btn btn-danger" onclick="resetData()">🗑️ Reset All Data</button>
+            <button class="btn" onclick="refreshData()">
+                <span class="icon system"></span>
+                Refresh Data
+            </button>
+            <button class="btn btn-danger" onclick="resetData()">
+                <span class="icon system"></span>
+                Reset All Data
+            </button>
         </div>
         
-        <div class="card" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border: 2px solid #4caf50;">
-            <h3 style="color: #2e7d32;">📍 Current Webhook Configuration</h3>
-            <div style="padding: 1rem; background: #fff; border-radius: 6px; border-left: 4px solid #4caf50;">
-                <code style="font-family: 'Monaco', 'Consolas', monospace; font-size: 1rem; color: #2e7d32;">http://localhost:5678/webhook/meeting-audio?forward=true</code>
-                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #666;">✅ Monitoring recordings in dashboard and forwarding to n8n</p>
-            </div>
-            <div style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ff9800;">
-                <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #856404;">
-                    <strong>Not seeing recordings here?</strong> Your Chrome extension might be using the old webhook URL.
-                    Update it in the extension popup to: <code>http://localhost:5678/webhook/meeting-audio?forward=true</code>
-                </p>
+        <div class="config-card">
+            <h3>Current Webhook Configuration</h3>
+            <div class="config-content">
+                <div class="config-url">
+                    http://localhost:5678/webhook/meeting-audio?forward=true
+                </div>
+                <div class="config-note">
+                    <strong>Not seeing recordings?</strong> Update your Chrome extension to use this webhook URL.
+                </div>
             </div>
         </div>
 
         <div class="grid" id="statsGrid">
-            <!-- Stats will be loaded here -->
-        </div>
-
-        <div class="card">
-            <h3>📊 Recent Recording Sessions</h3>
-            <div id="sessionsList">
-                <div class="no-data">Loading sessions...</div>
+            <div class="card">
+                <h3><span class="icon system"></span>System Status</h3>
+                <div class="stat">
+                    <span class="stat-label">Server Status</span>
+                    <span class="stat-value">Online</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Uptime</span>
+                    <span class="stat-value">0h 1m</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Active Sessions</span>
+                    <span class="stat-value">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Last Activity</span>
+                    <span class="stat-value">No activity yet</span>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3><span class="icon stats"></span>Recording Stats</h3>
+                <div class="stat">
+                    <span class="stat-label">Total Sessions</span>
+                    <span class="stat-value">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Total Chunks</span>
+                    <span class="stat-value">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Total Audio Data</span>
+                    <span class="stat-value">0 B</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Avg Chunk Size</span>
+                    <span class="stat-value">0 B</span>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3><span class="icon webhook"></span>Webhook Connection</h3>
+                <div class="stat">
+                    <span class="stat-label">Total Attempts</span>
+                    <span class="stat-value">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Successful</span>
+                    <span class="stat-value">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Success Rate</span>
+                    <span class="stat-value">0%</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Webhook Status</span>
+                    <span class="stat-value">Waiting</span>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3><span class="icon server"></span>Server Resources</h3>
+                <div class="stat">
+                    <span class="stat-label">Memory Used</span>
+                    <span class="stat-value">9.65 MB</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Memory Total</span>
+                    <span class="stat-value">11.55 MB</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">External Memory</span>
+                    <span class="stat-value">1.96 MB</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Server Started</span>
+                    <span class="stat-value">6/3/2025, 9:04:11 PM</span>
+                </div>
             </div>
         </div>
 
-        <div class="card">
-            <h3>🔗 Recent Webhook Attempts</h3>
-            <div id="webhookAttemptsList">
-                <div class="no-data">Loading webhook attempts...</div>
+        <div class="main-card">
+            <h3><span class="icon recording"></span>Recent Recording Sessions</h3>
+            <div class="main-card-content">
+                <div id="sessionsList">
+                    <div class="no-data">No recording sessions yet. Start recording in Chrome extension!</div>
+                </div>
             </div>
         </div>
 
-        <div class="card">
-            <h3>🎵 Latest Audio Chunks</h3>
-            <div id="chunksList">
-                <div class="no-data">Loading chunks...</div>
+        <div class="main-card">
+            <h3><span class="icon webhook"></span>Recent Webhook Attempts</h3>
+            <div class="main-card-content">
+                <div id="webhookAttemptsList">
+                    <div class="no-data">No webhook attempts yet. Start recording to see connection logs!</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-card">
+            <h3><span class="icon chunks"></span>Latest Audio Chunks</h3>
+            <div class="main-card-content">
+                <div id="chunksList">
+                    <div class="no-data">No audio chunks received yet.</div>
+                </div>
             </div>
         </div>
     </div>
 
     <div class="footer">
-        <p>Meeting Audio Capture System v1.0 | Ready for n8n Integration</p>
+        <p>Meeting Audio Capture System v1.0 | by Yambo Studio 2025</p>
     </div>
 
     <script>
@@ -692,10 +1047,10 @@ function generateDashboardHTML() {
                 
                 document.getElementById('statsGrid').innerHTML = \`
                     <div class="card">
-                        <h3>🎯 System Status</h3>
+                        <h3><span class="icon system"></span>System Status</h3>
                         <div class="stat">
                             <span class="stat-label">Server Status</span>
-                            <span class="stat-value">🟢 Online</span>
+                            <span class="stat-value">Online</span>
                         </div>
                         <div class="stat">
                             <span class="stat-label">Uptime</span>
@@ -712,7 +1067,7 @@ function generateDashboardHTML() {
                     </div>
                     
                     <div class="card">
-                        <h3>📈 Recording Stats</h3>
+                        <h3><span class="icon stats"></span>Recording Stats</h3>
                         <div class="stat">
                             <span class="stat-label">Total Sessions</span>
                             <span class="stat-value">\${stats.totalSessions.toLocaleString()}</span>
@@ -732,7 +1087,7 @@ function generateDashboardHTML() {
                     </div>
                     
                     <div class="card">
-                        <h3>🔗 Webhook Connection</h3>
+                        <h3><span class="icon webhook"></span>Webhook Connection</h3>
                         <div class="stat">
                             <span class="stat-label">Total Attempts</span>
                             <span class="stat-value">\${stats.totalWebhookAttempts.toLocaleString()}</span>
@@ -747,12 +1102,12 @@ function generateDashboardHTML() {
                         </div>
                         <div class="stat">
                             <span class="stat-label">Webhook Status</span>
-                            <span class="stat-value">\${stats.totalWebhookAttempts > 0 ? '🟢 Active' : '🟡 Waiting'}</span>
+                            <span class="stat-value">\${stats.totalWebhookAttempts > 0 ? 'Active' : 'Waiting'}</span>
                         </div>
                     </div>
                     
                     <div class="card">
-                        <h3>💾 Server Resources</h3>
+                        <h3><span class="icon server"></span>Server Resources</h3>
                         <div class="stat">
                             <span class="stat-label">Memory Used</span>
                             <span class="stat-value">\${formatBytes(stats.memoryUsage.heapUsed)}</span>
@@ -792,21 +1147,22 @@ function generateDashboardHTML() {
                         ? Math.round((new Date(session.endTime) - new Date(session.startTime)) / 1000)
                         : Math.round((Date.now() - new Date(session.startTime)) / 1000);
                     
-                    const sourceEmoji = {
-                        'google-meet': '📞',
-                        'zoom': '🟦',
-                        'teams': '💬', 
-                        'youtube': '📺',
-                        'spotify': '🎵',
-                        'discord': '🎮',
-                        'browser': '🌐'
-                    }[session.source] || '📄';
+                    const sourceIcon = {
+                        'google-meet': 'recording',
+                        'zoom': 'recording',
+                        'teams': 'recording', 
+                        'youtube': 'recording',
+                        'spotify': 'recording',
+                        'discord': 'recording',
+                        'browser': 'recording'
+                    }[session.source] || 'recording';
                         
                     return \`
                         <div class="chunk-item">
                             <div class="chunk-header">
                                 <span class="status-indicator status-\${session.status}"></span>
-                                \${sourceEmoji} \${session.title || session.meetingId}
+                                <span class="icon \${sourceIcon}"></span>
+                                \${session.title || session.meetingId}
                                 <span class="badge badge-\${session.status === 'active' ? 'first' : 'last'}">\${session.status.toUpperCase()}</span>
                             </div>
                             <div class="chunk-meta">
@@ -842,20 +1198,11 @@ function generateDashboardHTML() {
                     const chunkType = chunk.isFirstChunk ? 'first' : chunk.isLastChunk ? 'last' : 'middle';
                     const badgeText = chunk.isFirstChunk ? 'FIRST' : chunk.isLastChunk ? 'LAST' : \`#\${chunk.chunkIndex}\`;
                     
-                    const sourceEmoji = {
-                        'google-meet': '📞',
-                        'zoom': '🟦',
-                        'teams': '💬', 
-                        'youtube': '📺',
-                        'spotify': '🎵',
-                        'discord': '🎮',
-                        'browser': '🌐'
-                    }[chunk.source] || '📄';
-                    
                     return \`
                         <div class="chunk-item">
                             <div class="chunk-header">
-                                \${sourceEmoji} \${chunk.title || chunk.meetingId} - Chunk \${chunk.chunkIndex}
+                                <span class="icon chunks"></span>
+                                \${chunk.title || chunk.meetingId} - Chunk \${chunk.chunkIndex}
                                 <span class="badge badge-\${chunkType}">\${badgeText}</span>
                             </div>
                             <div class="chunk-meta">
@@ -864,7 +1211,7 @@ function generateDashboardHTML() {
                                 Size: \${formatBytes(chunk.audioSizeBytes)} | 
                                 Duration: \${chunk.duration}s | 
                                 Received: \${new Date(chunk.receivedAt).toLocaleTimeString()} | 
-                                ➡️ n8n: \${chunk.processingTime}ms
+                                → n8n: \${chunk.processingTime}ms
                             </div>
                         </div>
                     \`;
@@ -896,7 +1243,7 @@ function generateDashboardHTML() {
                 }
                 
                 const attemptsHTML = attempts.map(attempt => {
-                    const statusColor = attempt.status === 'processed' ? '#34c759' : '#ff9500';
+                    const statusClass = attempt.status === 'processed' ? 'status-active' : 'status-error';
                     const timeSinceAttempt = Math.round((Date.now() - new Date(attempt.timestamp).getTime()) / 1000);
                     const timeText = timeSinceAttempt < 60 ? \`\${timeSinceAttempt}s ago\` : 
                                    timeSinceAttempt < 3600 ? \`\${Math.floor(timeSinceAttempt/60)}m ago\` : 
@@ -905,7 +1252,8 @@ function generateDashboardHTML() {
                     return \`
                         <div class="chunk-item">
                             <div class="chunk-header">
-                                <span class="status-indicator" style="background: \${statusColor}"></span>
+                                <span class="status-indicator \${statusClass}"></span>
+                                <span class="icon webhook"></span>
                                 Webhook from \${attempt.sourceIP} - Meeting: \${attempt.meetingId}
                                 <span class="badge badge-\${attempt.status === 'processed' ? 'first' : 'middle'}">\${attempt.status.toUpperCase()}</span>
                             </div>
@@ -929,128 +1277,6 @@ function generateDashboardHTML() {
         
         async function refreshData() {
             await Promise.all([loadStats(), loadSessions(), loadWebhookAttempts(), loadChunks()]);
-        }
-        
-        async function testWebhookTest() {
-            const webhookUrl = document.getElementById('testWebhookUrlTest').value.trim();
-            const resultDiv = document.getElementById('webhookTestResult');
-            const testBtn = document.getElementById('testWebhookTestBtn');
-            
-            if (!webhookUrl) {
-                alert('Please enter a webhook URL to test');
-                return;
-            }
-            
-            // Show testing state
-            testBtn.disabled = true;
-            testBtn.textContent = '⚡ Triggering...';
-            resultDiv.style.display = 'block';
-            resultDiv.style.background = '#fff3cd';
-            resultDiv.style.border = '1px solid #ffeaa7';
-            resultDiv.style.color = '#856404';
-            resultDiv.innerHTML = '⚡ Triggering n8n test mode...';
-            
-            try {
-                const response = await fetch('/api/test-webhook', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ webhookUrl })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    resultDiv.style.background = '#d4edda';
-                    resultDiv.style.border = '1px solid #c3e6cb';
-                    resultDiv.style.color = '#155724';
-                    resultDiv.innerHTML = \`✅ <strong>n8n Test Triggered!</strong> Status \${result.status} in \${result.responseTimeMs}ms<br>
-                    <small>Now you can switch to the Production URL tab in n8n and test the production webhook below.</small>\`;
-                } else {
-                    resultDiv.style.background = '#f8d7da';
-                    resultDiv.style.border = '1px solid #f5c6cb';
-                    resultDiv.style.color = '#721c24';
-                    let errorDetails = result.message;
-                    if (result.status) {
-                        errorDetails += \`<br><small>Status: \${result.status} \${result.statusText}</small>\`;
-                    }
-                    if (result.responseText) {
-                        errorDetails += \`<br><small>Response: \${result.responseText}</small>\`;
-                    }
-                    resultDiv.innerHTML = \`❌ <strong>Failed:</strong> \${errorDetails}\`;
-                }
-            } catch (error) {
-                resultDiv.style.background = '#f8d7da';
-                resultDiv.style.border = '1px solid #f5c6cb';
-                resultDiv.style.color = '#721c24';
-                resultDiv.innerHTML = \`❌ <strong>Error:</strong> \${error.message}\`;
-            }
-            
-            // Reset button
-            testBtn.disabled = false;
-            testBtn.textContent = '⚡ Trigger n8n Test';
-        }
-        
-        async function testWebhook() {
-            const webhookUrl = document.getElementById('testWebhookUrl').value.trim();
-            const resultDiv = document.getElementById('webhookTestResult');
-            const testBtn = document.getElementById('testWebhookBtn');
-            
-            if (!webhookUrl) {
-                alert('Please enter a webhook URL to test');
-                return;
-            }
-            
-            // Show testing state
-            testBtn.disabled = true;
-            testBtn.textContent = '🔄 Testing...';
-            resultDiv.style.display = 'block';
-            resultDiv.style.background = '#f0f0f0';
-            resultDiv.style.border = '1px solid #ddd';
-            resultDiv.style.color = '#666';
-            resultDiv.innerHTML = '🔄 Testing webhook connection...';
-            
-            try {
-                const response = await fetch('/api/test-webhook', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ webhookUrl })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    resultDiv.style.background = '#d4edda';
-                    resultDiv.style.border = '1px solid #c3e6cb';
-                    resultDiv.style.color = '#155724';
-                    resultDiv.innerHTML = \`✅ <strong>Success!</strong> Webhook responded with status \${result.status} in \${result.responseTimeMs}ms<br>
-                    <small>Response: \${result.responseText || 'No response body'}</small>\`;
-                } else {
-                    resultDiv.style.background = '#f8d7da';
-                    resultDiv.style.border = '1px solid #f5c6cb';
-                    resultDiv.style.color = '#721c24';
-                    let errorDetails = result.message;
-                    if (result.status) {
-                        errorDetails += \`<br><small>Status: \${result.status} \${result.statusText}</small>\`;
-                    }
-                    if (result.responseText) {
-                        errorDetails += \`<br><small>Response: \${result.responseText}</small>\`;
-                    }
-                    resultDiv.innerHTML = \`❌ <strong>Failed:</strong> \${errorDetails}\`;
-                }
-            } catch (error) {
-                resultDiv.style.background = '#f8d7da';
-                resultDiv.style.border = '1px solid #f5c6cb';
-                resultDiv.style.color = '#721c24';
-                resultDiv.innerHTML = \`❌ <strong>Error:</strong> \${error.message}\`;
-            }
-            
-            // Reset button
-            testBtn.disabled = false;
-            testBtn.textContent = '🔗 Test Connection';
         }
         
         async function resetData() {
@@ -1081,8 +1307,7 @@ function generateDashboardHTML() {
         });
     </script>
 </body>
-</html>
-  `;
+</html>`;
 }
 
 // Graceful shutdown
