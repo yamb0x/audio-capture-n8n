@@ -39,6 +39,21 @@ if (savedUrl) {
   webhookInput.value = savedUrl;
 }
 
+// Load saved audio source preference
+chrome.storage.local.get(['audioSource'], (result) => {
+  if (result.audioSource) {
+    audioSourceSelect.value = result.audioSource;
+    console.log('[RECORDING PAGE] Restored audio source:', result.audioSource);
+  }
+});
+
+// Save audio source when changed
+audioSourceSelect.addEventListener('change', () => {
+  const selectedSource = audioSourceSelect.value;
+  console.log('[RECORDING PAGE] Audio source changed to:', selectedSource);
+  chrome.storage.local.set({ audioSource: selectedSource });
+});
+
 // Status management
 function updateStatus(status, message, isError = false) {
   console.log('[RECORDING PAGE] Status update:', status, message);

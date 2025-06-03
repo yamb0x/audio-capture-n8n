@@ -75,6 +75,28 @@ chrome.storage.local.get(['webhookUrl'], (result) => {
   }
 });
 
+// Load saved audio source preference
+chrome.storage.local.get(['audioSource', 'activeRecordingSource'], (result) => {
+  console.log('[POPUP] Loaded audio preferences:', result);
+  
+  // If there's an active recording, show that source
+  if (result.activeRecordingSource) {
+    audioSourceSelect.value = result.activeRecordingSource;
+    console.log('[POPUP] Active recording with source:', result.activeRecordingSource);
+  } else if (result.audioSource) {
+    // Otherwise use the last selected source
+    audioSourceSelect.value = result.audioSource;
+    console.log('[POPUP] Restored audio source:', result.audioSource);
+  }
+});
+
+// Save audio source when changed
+audioSourceSelect.addEventListener('change', () => {
+  const selectedSource = audioSourceSelect.value;
+  console.log('[POPUP] Audio source changed to:', selectedSource);
+  chrome.storage.local.set({ audioSource: selectedSource });
+});
+
 // Check current recording status from storage and background
 console.log('[POPUP] Checking current recording status');
 updateStatus('ready', 'Ready');
@@ -99,9 +121,17 @@ setTimeout(() => {
           chunkCounter = result.recordingData.chunkCounter || 0;
           isFirstChunk = result.recordingData.isFirstChunk || false;
           pageTitle = result.recordingData.pageTitle || 'Untitled';
+          
+          // Show recording status with audio source
+          const audioSource = result.recordingData.audioSource || 'microphone';
+          const sourceText = audioSource === 'microphone' ? 'Microphone' : 
+                             audioSource === 'system' ? 'System Audio' : 
+                             'Microphone + System';
+          updateStatus('recording', `Recording (${sourceText})`);
+        } else {
+          updateStatus('recording', 'Recording');
         }
         console.log('[POPUP] Restoring recording state, calling updateUI(true)');
-        updateStatus('recording', 'Recording');
         updateUI(true);
       } else {
         // Clear any stale storage state
@@ -297,11 +327,17 @@ function updateUI(isRecording) {
     stopBtn.style.display = 'block';
     startBtn.disabled = true;
     stopBtn.disabled = false;
+    // Disable audio source selector during recording
+    audioSourceSelect.disabled = true;
+    webhookInput.disabled = true;
   } else {
     startBtn.style.display = 'block';
     stopBtn.style.display = 'none';
     startBtn.disabled = false;
     stopBtn.disabled = true;
+    // Enable audio source selector when not recording
+    audioSourceSelect.disabled = false;
+    webhookInput.disabled = false;
   }
 }
 
@@ -597,8 +633,10 @@ function startMediaRecorder(stream, webhookUrl) {
     });
     
     // Persist recording state to storage
+    const currentAudioSource = audioSourceSelect.value;
     chrome.storage.local.set({
       isRecording: true,
+      activeRecordingSource: currentAudioSource, // Save the source used for this recording
       recordingData: {
         meetingId: meetingId,
         meetingUrl: meetingUrl,
@@ -606,11 +644,16 @@ function startMediaRecorder(stream, webhookUrl) {
         chunkCounter: chunkCounter,
         isFirstChunk: isFirstChunk,
         pageTitle: pageTitle,
-        startTime: new Date().toISOString()
+        startTime: new Date().toISOString(),
+        audioSource: currentAudioSource
       }
     });
     
-    updateStatus('recording', 'Recording');
+    // Show recording status with audio source
+    const sourceText = currentAudioSource === 'microphone' ? 'Microphone' : 
+                       currentAudioSource === 'system' ? 'System Audio' : 
+                       'Microphone + System';
+    updateStatus('recording', `Recording (${sourceText})`);
     console.log('[POPUP] About to call updateUI(true)');
     updateUI(true);
     console.log('[POPUP] After updateUI - startBtn display:', startBtn.style.display, 'stopBtn display:', stopBtn.style.display);
@@ -828,8 +871,8 @@ function stopRecording() {
     audioCaptureHandler = null;
   }
   
-  // Clear storage
-  chrome.storage.local.remove(['isRecording', 'recordingData']);
+  // Clear storage (but keep the audio source preference)
+  chrome.storage.local.remove(['isRecording', 'recordingData', 'activeRecordingSource']);
   
   // Notify background
   chrome.runtime.sendMessage({

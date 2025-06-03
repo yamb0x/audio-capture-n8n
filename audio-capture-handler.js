@@ -60,25 +60,67 @@ class AudioCaptureHandler {
   }
 
   /**
-   * Get system audio stream using tab capture
+   * Get system audio stream using screen capture API (doesn't mute tab)
    */
   async getSystemAudioStream(tabId) {
-    console.log('[AudioCapture] Requesting system audio for tab:', tabId);
+    console.log('[AudioCapture] Requesting system audio...');
     
+    try {
+      // Use getDisplayMedia for system audio - this won't mute the tab
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          sampleRate: 48000
+        },
+        video: false // We only want audio
+      });
+
+      // Check if we got audio track
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length === 0) {
+        throw new Error('No audio track in screen capture. User may have disabled audio sharing.');
+      }
+
+      console.log('[AudioCapture] System audio stream obtained via screen capture');
+      this.systemStream = stream;
+      
+      // Add event listener for track ending (user stops sharing)
+      audioTracks[0].addEventListener('ended', () => {
+        console.log('[AudioCapture] System audio sharing ended by user');
+      });
+      
+      return stream;
+      
+    } catch (error) {
+      console.error('[AudioCapture] System audio capture error:', error);
+      
+      // Fall back to tab capture if available
+      if (chrome.tabCapture && tabId) {
+        console.log('[AudioCapture] Falling back to tab capture (note: this will mute the tab)');
+        return this.getTabAudioStream(tabId);
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Get tab audio stream using tab capture (mutes the tab)
+   */
+  async getTabAudioStream(tabId) {
     return new Promise((resolve, reject) => {
-      // Check if we have tabCapture permission
       if (!chrome.tabCapture) {
-        reject(new Error('Tab capture API not available. Check permissions.'));
+        reject(new Error('Tab capture API not available.'));
         return;
       }
 
-      // Get stream from tab
       chrome.tabCapture.capture({
         audio: true,
         video: false
       }, (stream) => {
         if (chrome.runtime.lastError) {
-          console.error('[AudioCapture] Tab capture error:', chrome.runtime.lastError);
           reject(new Error(chrome.runtime.lastError.message));
           return;
         }
@@ -88,8 +130,7 @@ class AudioCaptureHandler {
           return;
         }
 
-        console.log('[AudioCapture] System audio stream obtained');
-        this.systemStream = stream;
+        console.log('[AudioCapture] Tab audio stream obtained (tab is now muted)');
         resolve(stream);
       });
     });
