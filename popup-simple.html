@@ -1,61 +1,104 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <style>
+    @font-face {
+      font-family: 'Basis Grotesque';
+      src: url('fonts/basis-grotesque-regular.woff2') format('woff2'),
+           url('fonts/basis-grotesque-regular-pro.woff') format('woff');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Kalice';
+      src: url('fonts/Kalice-Regular.woff2') format('woff2'),
+           url('fonts/Kalice-Regular.woff') format('woff');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Kalice';
+      src: url('fonts/Kalice-Italic.woff2') format('woff2'),
+           url('fonts/Kalice-Italic.woff') format('woff');
+      font-weight: normal;
+      font-style: italic;
+      font-display: swap;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
       width: 320px;
-      padding: 16px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      margin: 0;
+      font-family: 'Basis Grotesque', monospace, sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+      background: #ffffff;
+      color: #000000;
+      border: 1px solid #000000;
     }
     
     .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 20px;
+      padding: 16px;
+      border-bottom: 1px solid #000000;
     }
     
     .title {
-      font-size: 18px;
-      font-weight: 600;
-      color: #333;
+      font-family: 'Kalice', serif;
+      font-size: 16px;
+      font-weight: normal;
+    }
+    
+    .status-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     
     .status {
       display: inline-block;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      margin-right: 8px;
+      width: 8px;
+      height: 8px;
+      border: 1px solid #000000;
     }
     
     .status.ready {
-      background-color: #4CAF50;
+      background-color: #ffffff;
     }
     
     .status.recording {
-      background-color: #ff4444;
+      background-color: #000000;
       animation: pulse 1.5s infinite;
     }
     
     @keyframes pulse {
       0% { opacity: 1; }
-      50% { opacity: 0.5; }
+      50% { opacity: 0.3; }
       100% { opacity: 1; }
     }
     
     .status-text {
-      font-size: 14px;
-      color: #666;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     
     .recording-info {
-      background: #fff3cd;
-      border: 1px solid #ffeaa7;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 16px;
+      background: #000000;
+      color: #ffffff;
+      padding: 16px;
+      border-bottom: 1px solid #000000;
       display: none;
     }
     
@@ -66,75 +109,145 @@
     .info-row {
       display: flex;
       justify-content: space-between;
-      margin: 4px 0;
-      font-size: 14px;
+      margin-bottom: 8px;
+      font-size: 11px;
+    }
+    
+    .info-row:last-child {
+      margin-bottom: 0;
     }
     
     .info-label {
-      color: #856404;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.8;
     }
     
     .info-value {
-      font-weight: 600;
-      color: #333;
+      font-weight: normal;
+    }
+    
+    .controls {
+      padding: 16px;
     }
     
     .button {
       width: 100%;
       padding: 12px;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 500;
+      border: 1px solid #000000;
+      background: #ffffff;
+      color: #000000;
+      font-family: 'Basis Grotesque', monospace, sans-serif;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.2s ease;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
+      margin-bottom: 8px;
     }
     
-    .button-primary {
-      background: #4CAF50;
-      color: white;
+    .button:last-child {
+      margin-bottom: 0;
     }
     
-    .button-primary:hover {
-      background: #45a049;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+    .button:hover {
+      background: #000000;
+      color: #ffffff;
+    }
+    
+    .button:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    
+    .button:disabled:hover {
+      background: #ffffff;
+      color: #000000;
     }
     
     .button-danger {
-      background: #f44336;
-      color: white;
+      background: #000000;
+      color: #ffffff;
     }
     
     .button-danger:hover {
-      background: #e53935;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+      background: #ffffff;
+      color: #000000;
     }
     
     .help-text {
-      font-size: 12px;
-      color: #666;
-      text-align: center;
-      margin-top: 16px;
-      line-height: 1.4;
+      font-size: 10px;
+      color: #666666;
+      text-align: left;
+      padding: 16px;
+      border-top: 1px solid #000000;
+      line-height: 1.3;
     }
     
     .divider {
       height: 1px;
-      background: #e0e0e0;
-      margin: 16px 0;
+      background: #000000;
+      margin: 0;
+    }
+
+    /* Icon replacements */
+    .icon {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: currentColor;
+    }
+
+    .icon.mic {
+      border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+      transform: scale(1.2);
+    }
+
+    .icon.stop {
+      clip-path: none;
+      border-radius: 0;
+    }
+
+    .icon.control {
+      clip-path: polygon(25% 25%, 75% 25%, 75% 75%, 25% 75%);
+      background: currentColor;
+    }
+
+    /* Clean transitions */
+    * {
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    /* Better focus states */
+    button:focus {
+      outline: 2px solid #000000;
+      outline-offset: 2px;
+    }
+
+    /* Typography improvements */
+    .monospace-label {
+      font-family: 'Basis Grotesque', monospace, sans-serif;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Ensure consistent spacing */
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
     }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="title">Audio Capture</div>
-    <div>
+    <div class="status-container">
       <span class="status ready" id="status"></span>
       <span class="status-text" id="statusText">Ready</span>
     </div>
@@ -142,24 +255,28 @@
   
   <div class="recording-info" id="recordingInfo">
     <div class="info-row">
-      <span class="info-label">Duration:</span>
+      <span class="info-label">Duration</span>
       <span class="info-value" id="duration">00:00</span>
     </div>
     <div class="info-row">
-      <span class="info-label">Source:</span>
+      <span class="info-label">Source</span>
       <span class="info-value" id="source">-</span>
     </div>
   </div>
   
-  <button class="button button-primary" id="openControlBtn">
-    <span>🎙️</span>
-    <span>Open Control Center</span>
-  </button>
-  
-  <button class="button button-danger" id="quickStopBtn" style="display: none;">
-    <span>⏹️</span>
-    <span>Stop Recording</span>
-  </button>
+  <div class="controls">
+    <div class="button-group">
+      <button class="button" id="openControlBtn">
+        <span class="icon control"></span>
+        <span>Open Control Center</span>
+      </button>
+      
+      <button class="button button-danger" id="quickStopBtn" style="display: none;">
+        <span class="icon stop"></span>
+        <span>Stop Recording</span>
+      </button>
+    </div>
+  </div>
   
   <div class="divider"></div>
   

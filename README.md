@@ -160,6 +160,12 @@ LOG_LEVEL=info              # Logging verbosity
 - 🎯 **Recording Types** - Meeting, media, chat categorization
 - 📊 **Audio Analytics** - Size, duration, chunk count
 
+### Modern UI Design
+- 🎨 **Monospace Aesthetic** - Clean, minimal interface with Basis Grotesque and Kalice fonts
+- ⚫ **Black & White Theme** - Professional, distraction-free design
+- 🔲 **Sharp Borders** - Precise, geometric interface elements
+- 🚫 **No Emojis in UI** - Clean icons using CSS shapes instead
+
 ## 🧪 Advanced Usage
 
 ### Custom Webhook URLs
@@ -228,6 +234,21 @@ We welcome contributions! Please see our contributing guidelines:
 - **No events**: Verify webhook URL configuration
 - **Processing errors**: Check OpenAI API key and credits
 - **Workflow failures**: Review n8n execution logs
+
+## 📝 Changelog
+
+### v1.1.0 (2025-06-03)
+- 🎨 **New UI Design** - Complete interface redesign with monospace aesthetic
+- 🔤 **Custom Fonts** - Added Basis Grotesque and Kalice font families
+- 🔧 **UTF-8 Fix** - Fixed character encoding issues across all interfaces
+- 🎯 **Improved Icons** - Replaced emojis with clean CSS-based icons
+- 📱 **Better Popup** - Enhanced popup design with consistent styling
+
+### v1.0.0 (Initial Release)
+- 🎤 Core audio capture functionality
+- 📊 Real-time dashboard
+- 🤖 n8n integration
+- 🌐 Multi-platform support
 
 ## 📄 License
 

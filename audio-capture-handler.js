@@ -60,30 +60,34 @@ class AudioCaptureHandler {
   }
 
   /**
-   * Get system audio stream using screen capture API (doesn't mute tab)
+   * Get system audio stream using screen capture API
+   * User will choose which tab/window to capture via browser dialog
    */
   async getSystemAudioStream(tabId) {
-    console.log('[AudioCapture] Requesting system audio...');
+    console.log('[AudioCapture] Requesting system audio - user will choose tab/window...');
     
     try {
-      // Use getDisplayMedia for system audio - this won't mute the tab
+      // Use getDisplayMedia - this shows a picker for user to choose tab/window
+      // Note: Arc browser requires video:true even if we only want audio
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          sampleRate: 48000
-        },
-        video: false // We only want audio
+        audio: true, // Request audio
+        video: true // Required by Arc browser, we'll discard video tracks
       });
 
       // Check if we got audio track
       const audioTracks = stream.getAudioTracks();
       if (audioTracks.length === 0) {
-        throw new Error('No audio track in screen capture. User may have disabled audio sharing.');
+        throw new Error('No audio track selected. Please choose "Share tab audio" or "Share system audio" when prompted.');
       }
 
-      console.log('[AudioCapture] System audio stream obtained via screen capture');
+      // Stop video tracks since we only want audio
+      const videoTracks = stream.getVideoTracks();
+      videoTracks.forEach(track => {
+        console.log('[AudioCapture] Stopping video track (we only need audio)');
+        track.stop();
+      });
+
+      console.log('[AudioCapture] System audio stream obtained from user selection');
       this.systemStream = stream;
       
       // Add event listener for track ending (user stops sharing)
@@ -96,13 +100,15 @@ class AudioCaptureHandler {
     } catch (error) {
       console.error('[AudioCapture] System audio capture error:', error);
       
-      // Fall back to tab capture if available
-      if (chrome.tabCapture && tabId) {
-        console.log('[AudioCapture] Falling back to tab capture (note: this will mute the tab)');
-        return this.getTabAudioStream(tabId);
+      if (error.name === 'NotAllowedError') {
+        throw new Error('Screen sharing permission denied. Please allow screen sharing and select a tab with audio.');
       }
       
-      throw error;
+      if (error.name === 'NotFoundError') {
+        throw new Error('No audio source found. Please select a tab and enable "Share tab audio".');
+      }
+      
+      throw new Error(`Failed to capture system audio: ${error.message}`);
     }
   }
 

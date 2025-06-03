@@ -67,35 +67,18 @@ async function checkAudioSourceAvailability() {
   
   if (selectedSource === 'microphone') {
     hideError();
-    return;
-  }
-  
-  // Check system audio availability
-  const availability = await AudioCaptureHandler.checkSystemAudioAvailability();
-  console.log('[CONTROL CENTER] Audio availability check:', availability);
-  
-  if (!availability.available) {
-    let message = `System audio not available: ${availability.reason}`;
-    if (availability.recommendation) {
-      message += `\n\n💡 ${availability.recommendation}`;
-    }
-    if (availability.tabUrl) {
-      message += `\n\nCurrent page: ${availability.tabUrl}`;
-    }
-    showError(message);
-    
-    // Disable start button
-    startBtn.disabled = true;
-    startBtn.textContent = 'System Audio Not Available';
-  } else {
+    showInfo('🎤 Ready to capture microphone audio');
+  } else if (selectedSource === 'system') {
     hideError();
-    startBtn.disabled = false;
-    startBtn.innerHTML = '<span>▶️</span><span>Start Recording</span>';
-    
-    if (availability.message) {
-      showInfo(availability.message);
-    }
+    showInfo('🔊 Ready to capture system audio - you\'ll choose which tab/window when recording starts');
+  } else if (selectedSource === 'both') {
+    hideError();
+    showInfo('🎵 Ready to capture both microphone and system audio - you\'ll choose which tab/window for system audio');
   }
+  
+  // Always enable start button - let getDisplayMedia handle the selection
+  startBtn.disabled = false;
+  startBtn.innerHTML = '<span>▶️</span><span>Start Recording</span>';
 }
 
 // Load saved preferences
@@ -213,19 +196,6 @@ async function startRecording() {
     console.log('[CONTROL CENTER] Getting audio stream for source:', audioSource);
     
     try {
-      // Check if we're on a supported page first
-      if (audioSource !== 'microphone') {
-        const availability = await AudioCaptureHandler.checkSystemAudioAvailability();
-        if (!availability.available) {
-          let errorMsg = `Cannot capture system audio: ${availability.reason}`;
-          if (availability.recommendation) {
-            errorMsg += `\n\n💡 Solution: ${availability.recommendation}`;
-          }
-          showError(errorMsg);
-          return;
-        }
-      }
-      
       audioStream = await audioCaptureHandler.getAudioStream(audioSource, currentTab.id);
       console.log('[CONTROL CENTER] Got audio stream');
     } catch (error) {
@@ -234,19 +204,19 @@ async function startRecording() {
       // Handle specific error cases
       if (error.name === 'NotAllowedError') {
         if (audioSource === 'system' || audioSource === 'both') {
-          showError('Screen sharing permission denied.\n\n💡 To capture system audio:\n1. Click "Start Recording" again\n2. Select "Share tab audio" or "Share system audio"\n3. Choose the tab/window you want to record');
+          showError('Screen sharing permission denied.\n\n💡 To capture system audio:\n1. Click "Start Recording" again\n2. Allow screen sharing when prompted\n3. Select the tab you want to record\n4. Make sure to check "Share tab audio"');
         } else {
           showError('Microphone permission denied.\n\n💡 Please allow microphone access and try again.');
         }
         return;
       }
       
-      if (error.message.includes('Chrome pages cannot be captured')) {
-        showError('Cannot capture audio from Chrome internal pages.\n\n💡 Please navigate to a regular website (like YouTube, Google Meet, etc.) and try again.');
+      if (error.message.includes('No audio track selected')) {
+        showError('No audio source selected.\n\n💡 When choosing a tab to share:\n1. Select the tab with audio you want to capture\n2. Make sure "Share tab audio" is checked\n3. Click "Share"');
         return;
       }
       
-      // Try fallback to microphone
+      // Try fallback to microphone for system audio failures
       if (audioSource !== 'microphone') {
         showError(`Failed to capture ${audioSource}: ${error.message}\n\nFalling back to microphone only...`);
         audioSourceSelect.value = 'microphone';
@@ -255,7 +225,6 @@ async function startRecording() {
           try {
             audioStream = await audioCaptureHandler.getAudioStream('microphone', currentTab.id);
             hideError();
-            // Continue with recording setup...
             setupRecordingWithStream();
           } catch (fallbackError) {
             showError(`Microphone fallback also failed: ${fallbackError.message}`);
