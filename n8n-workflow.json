@@ -1,0 +1,366 @@
+{
+  "name": "Audio Capture (Revised by claude)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meeting-audio",
+        "options": {}
+      },
+      "id": "9b41faf8-f0b6-4756-8989-2f28a1399e41",
+      "name": "Webhook - Audio Receiver",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -2360,
+        340
+      ],
+      "webhookId": "3c7b270c-bfa6-40c3-b1af-50ca92fbaf98"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Memory-Optimized Session Processor - Passes chunks individually\nconst input = $input.first().json;\nconst data = input.body;\n\nconsole.log('[SESSION] Processing chunk ' + data.chunkIndex + ' for session: ' + data.recordingSessionId);\nconsole.log('[SESSION] isFirstChunk: ' + data.isFirstChunk + ', isLastChunk: ' + data.isLastChunk);\n\n// Pass through individual chunk data without storing\nconst chunkData = {\n  // Session info\n  sessionId: data.recordingSessionId,\n  meetingId: data.meetingId,\n  meetingUrl: data.meetingUrl,\n  title: data.title,\n  source: data.source,\n  recordingType: data.recordingType,\n  \n  // Current chunk info\n  chunkIndex: data.chunkIndex,\n  audio: data.audio,\n  timestamp: data.timestamp,\n  duration: data.duration,\n  \n  // Processing flags\n  isFirstChunk: data.isFirstChunk,\n  isLastChunk: data.isLastChunk,\n  \n  // Session metadata (for final processing)\n  sessionMetadata: {\n    meetingId: data.meetingId,\n    title: data.title,\n    source: data.source,\n    recordingType: data.recordingType,\n    meetingUrl: data.meetingUrl,\n    startTime: data.timestamp\n  }\n};\n\nconsole.log('[SESSION] Passing through chunk ' + data.chunkIndex + ' for immediate processing');\n\n// Return individual chunk for processing\nreturn [chunkData];"
+      },
+      "id": "5fe5ad57-4100-4b81-821d-5c1b208a17a0",
+      "name": "Session Processor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2160,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Single Chunk Transcription Processor\nconst chunkData = $input.first().json;\n\nconsole.log('[TRANSCRIBE] Processing individual chunk ' + chunkData.chunkIndex);\n\nif (!chunkData.audio) {\n  console.log('[TRANSCRIBE] No audio data in chunk ' + chunkData.chunkIndex);\n  return [{ \n    error: 'No audio data in chunk',\n    sessionId: chunkData.sessionId,\n    chunkIndex: chunkData.chunkIndex\n  }];\n}\n\ntry {\n  let base64Data = chunkData.audio;\n  \n  // Clean base64 data (remove data URL prefix if present)\n  base64Data = base64Data.replace(/^data:audio\\/[^;]+;base64,/, '');\n  \n  // Calculate chunk size\n  const sizeBytes = (base64Data.length * 0.75); // Base64 to bytes approximation\n  const sizeMB = sizeBytes / (1024 * 1024);\n  \n  console.log(`[TRANSCRIBE] Chunk ${chunkData.chunkIndex} size: ${sizeMB.toFixed(2)}MB`);\n  \n  // Check size limit (20MB per chunk for OpenAI)\n  if (sizeMB > 20) {\n    console.log('[TRANSCRIBE] Chunk too large, skipping: ' + chunkData.chunkIndex);\n    return [{\n      sessionId: chunkData.sessionId,\n      chunkIndex: chunkData.chunkIndex,\n      skipped: true,\n      reason: 'Chunk exceeds 20MB limit',\n      isFirstChunk: chunkData.isFirstChunk,\n      isLastChunk: chunkData.isLastChunk,\n      sessionMetadata: chunkData.sessionMetadata\n    }];\n  }\n  \n  // Prepare binary data for OpenAI\n  const binaryData = {\n    data: base64Data,\n    mimeType: 'audio/webm',\n    fileName: `chunk_${chunkData.sessionId}_${chunkData.chunkIndex}.webm`,\n    fileExtension: 'webm'\n  };\n  \n  return [{\n    json: {\n      sessionId: chunkData.sessionId,\n      chunkIndex: chunkData.chunkIndex,\n      isFirstChunk: chunkData.isFirstChunk,\n      isLastChunk: chunkData.isLastChunk,\n      sessionMetadata: chunkData.sessionMetadata\n    },\n    binary: {\n      data: binaryData\n    }\n  }];\n  \n} catch (error) {\n  console.error('[TRANSCRIBE] Error processing chunk:', error.message);\n  return [{\n    error: `Failed to prepare audio: ${error.message}`,\n    sessionId: chunkData.sessionId,\n    chunkIndex: chunkData.chunkIndex\n  }];\n}"
+      },
+      "id": "1abc7745-3e8c-4a5f-ad6d-2d921745facb",
+      "name": "Prepare Audio Chunk",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2000,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -1840,
+        340
+      ],
+      "id": "fe204319-3495-44c8-afe2-cab6570fbf03",
+      "name": "OpenAI Transcribe",
+      "credentials": {
+        "openAiApi": {
+          "id": "MVMoNQYFiHfDXrpm",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract transcription text\nconst input = $input.first().json;\n\n// Extract text from the transcription\nlet text = '';\nif (input.text) {\n  text = input.text;\n} else if (Array.isArray(input) && input[0]?.text) {\n  text = input[0].text;\n}\n\n// Pass through metadata\nconst previousData = $node[\"Prepare Audio Chunk\"].json.json || $node[\"Prepare Audio Chunk\"].json;\n\nreturn [{\n  text: text,\n  sessionId: previousData.sessionId,\n  chunkIndex: previousData.chunkIndex,\n  isFirstChunk: previousData.isFirstChunk,\n  isLastChunk: previousData.isLastChunk,\n  sessionMetadata: previousData.sessionMetadata\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1680,
+        340
+      ],
+      "id": "6ce64f72-187f-432b-8c40-0f93493549a3",
+      "name": "Extract Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Transcription Text Aggregator - Collects transcribed text only\nconst inputData = $input.first().json;\n\n// Get workflow static data for text storage\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.transcriptions) {\n  staticData.transcriptions = {};\n}\n\nconst sessionId = inputData.sessionId;\nconst chunkIndex = inputData.chunkIndex;\nconst transcriptionText = inputData.text || '';\n\nconsole.log(`[AGGREGATE] Processing transcription for chunk ${chunkIndex} of session ${sessionId}`);\n\n// Initialize session if needed\nif (!staticData.transcriptions[sessionId]) {\n  staticData.transcriptions[sessionId] = {\n    chunks: {},\n    metadata: inputData.sessionMetadata,\n    totalChunks: 0,\n    processedChunks: 0\n  };\n}\n\n// Store this chunk's transcription\nstaticData.transcriptions[sessionId].chunks[chunkIndex] = transcriptionText;\nstaticData.transcriptions[sessionId].processedChunks++;\n\nconsole.log(`[AGGREGATE] Stored transcription for chunk ${chunkIndex} (${transcriptionText.length} chars)`);\n\n// Check if this is the last chunk\nif (inputData.isLastChunk) {\n  console.log('[AGGREGATE] Last chunk received - preparing complete transcription');\n  \n  const session = staticData.transcriptions[sessionId];\n  \n  // Get all chunk indices and sort them\n  const chunkIndices = Object.keys(session.chunks)\n    .map(k => parseInt(k))\n    .sort((a, b) => a - b);\n  \n  // Combine transcriptions in order\n  const fullTranscription = chunkIndices\n    .map(idx => session.chunks[idx])\n    .filter(text => text && text.length > 0)\n    .join(' ');\n  \n  // Calculate actual duration (chunks * duration per chunk)\n  const totalDuration = (chunkIndices.length) * 30; // Assuming 30s chunks\n  \n  const result = {\n    sessionId: sessionId,\n    fullTranscription: fullTranscription,\n    totalChunks: chunkIndices.length,\n    processedChunks: session.processedChunks,\n    sessionMetadata: session.metadata,\n    totalDuration: totalDuration,\n    isComplete: true\n  };\n  \n  // Clean up\n  delete staticData.transcriptions[sessionId];\n  \n  console.log(`[AGGREGATE] Complete transcription: ${fullTranscription.length} chars from ${chunkIndices.length} chunks`);\n  return [result];\n  \n} else {\n  console.log('[AGGREGATE] Intermediate chunk stored - waiting for more');\n  // Return empty to stop workflow for intermediate chunks\n  return [];\n}"
+      },
+      "id": "1962a9b7-44dc-4519-b8af-5fcac1535a61",
+      "name": "Aggregate Transcriptions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1520,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.isComplete}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "90da6d2e-9466-499c-b9ba-83de112ee641",
+      "name": "Transcription Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -1360,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=🧠 GPT Agent Instructions (Strict Mode for audio-capture-n8n)\n\nYou are a summarization agent that receives transcribed conversation text from a recording. This text is passed via n8n as:\n\n{{ $json.fullTranscription }}\n\nYour job is to analyze only the text content provided and generate three distinct outputs:\n\n✅ Output Format (JSON):\n{\n \"summary_paragraph\": \"A short, 2–4 sentence high-level summary written strictly based on the actual transcript content.\",\n \"key_points\": [\n   \"Bullet point 1 (based directly on input text)\",\n   \"Bullet point 2\",\n   \"Up to 5 bullets total\"\n ],\n \"full_summary\": \"A complete paragraph-based summary, built by reorganizing and clarifying the input. Do not invent information or ideas not clearly stated in the input.\"\n}\n\n🔒 Rules and Behavior:\n1. You must base your response only on the provided text. No creative interpretation, no imagined context, no filler. If it wasn't said in the input, it shouldn't appear in the output.\n2. If the input is short or vague, keep the output short or vague too. Do not over-explain or assume intent. Reflect the tone, structure, and specificity of the actual transcript.\n3. Stay grounded. Don't hallucinate ideas, summaries, or assumptions. Your job is to restructure, clean up, and clarify, not invent.\n4. For full_summary, clean up conversational flow and filler, but keep the content true to what was said — rephrase and restructure where needed, but don't infer or add meaning.\n5. For key_points, include only real, clear insights or statements from the text. If there are fewer than five, include fewer.\n6. If the text is purely promotional or irrelevant (e.g. \"share this video\"), keep all outputs minimal and factual."
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -1100,
+        240
+      ],
+      "id": "40740eb1-4851-4e25-8e2a-45af1ce3e92e",
+      "name": "OpenAI Analyze",
+      "credentials": {
+        "openAiApi": {
+          "id": "MVMoNQYFiHfDXrpm",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const transcriptionData = $node[\"Aggregate Transcriptions\"].json;\nconst openAiResponse = $input.first().json;\n\nlet summaryParagraph = \"No summary available\";\nlet keyPoints = [];\nlet fullSummary = \"No summary available\";\n\nif (openAiResponse && openAiResponse.message && openAiResponse.message.content) {\n const content = openAiResponse.message.content;\n summaryParagraph = content.summary_paragraph || \"No summary available\";\n keyPoints = content.key_points || [];\n fullSummary = content.full_summary || \"No summary available\";\n}\n\nconst metadata = transcriptionData.sessionMetadata;\n\nconst notionData = {\n title: metadata.title || \"Recording\",\n platform: metadata.source,\n recordingType: metadata.recordingType,\n duration: Math.round(transcriptionData.totalDuration / 60),\n sessionId: transcriptionData.sessionId,\n summaryParagraph: summaryParagraph,\n keyPoints: keyPoints.join(\"\\n• \"),\n fullSummary: fullSummary,\n originalUrl: metadata.meetingUrl || \"\"\n};\n\nconsole.log(\"[NOTION] Data prepared\");\nreturn [notionData];"
+      },
+      "id": "d3596558-e466-48c5-917c-3fef6045e60e",
+      "name": "Prepare Notion Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -840,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "f4ce6659-591c-4165-af53-a665576f198b",
+          "mode": "list",
+          "cachedResultName": "Yambo Notes",
+          "cachedResultUrl": "https://www.notion.so/f4ce6659591c4165af53a665576f198b"
+        },
+        "title": "={{$json.title}}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Teammate|multi_select",
+              "multiSelectValue": [
+                "Yam"
+              ]
+            },
+            {
+              "key": "Tags|select",
+              "selectValue": "AI Notetaker"
+            }
+          ]
+        },
+        "blockUi": {
+          "blockValues": [
+            {
+              "type": "heading_2",
+              "textContent": "Recording Details"
+            },
+            {
+              "textContent": "=Platform: {{$json.platform}}"
+            },
+            {
+              "textContent": "=Duration: {{$json.duration}} minutes"
+            },
+            {
+              "type": "heading_2",
+              "textContent": "Agent Summary"
+            },
+            {
+              "textContent": "={{$json.summaryParagraph}}"
+            },
+            {
+              "type": "heading_2",
+              "textContent": "Key Takeaways"
+            },
+            {
+              "type": "numbered_list_item",
+              "textContent": "={{$json.keyPoints}}"
+            },
+            {
+              "type": "heading_1",
+              "textContent": "Content Transcript"
+            },
+            {
+              "textContent": "={{$json.fullSummary}}"
+            },
+            {
+              "richText": true,
+              "text": {
+                "text": [
+                  {
+                    "text": "Created with Yambo Studio Notetaker",
+                    "annotationUi": {}
+                  },
+                  {
+                    "text": "Built by Yambo & Claude Opus 4",
+                    "annotationUi": {}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "25a353ac-573c-45f6-9bc7-17fedb7187f7",
+      "name": "Create Notion Page",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [
+        -600,
+        240
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "mwTbsI1w1Dk4aoUb",
+          "name": "Notion account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Audio Receiver": {
+      "main": [
+        [
+          {
+            "node": "Session Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Session Processor": {
+      "main": [
+        [
+          {
+            "node": "Prepare Audio Chunk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Audio Chunk": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Transcribe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Transcribe": {
+      "main": [
+        [
+          {
+            "node": "Extract Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Transcriptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Transcriptions": {
+      "main": [
+        [
+          {
+            "node": "Transcription Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcription Complete?": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Analyze",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Analyze": {
+      "main": [
+        [
+          {
+            "node": "Prepare Notion Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Notion Data": {
+      "main": [
+        [
+          {
+            "node": "Create Notion Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8ff89adf-1dc6-4cf0-98fc-7c5e042dc928",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2f4fdde50ebbbe75bbe61967644a02dcf6ccbe1f5ec622c8ef92c09eb43831e3"
+  },
+  "id": "16len20kUast4OGD",
+  "tags": []
+}

@@ -1,12 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Audio Capture for n8n",
-  "version": "1.1",
+  "version": "2.0",
   "description": "Capture audio from any browser tab and send to n8n webhook",
   "permissions": [
     "tabCapture",
     "activeTab",
-    "storage"
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"
@@ -18,5 +22,17 @@
       "48": "icon.png",
       "128": "icon.png"
     }
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "audio-processor.js",
+        "recording-page.html",
+        "recording-page.js",
+        "recording-page-enhanced.html",
+        "recording-page-enhanced.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

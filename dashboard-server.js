@@ -11,8 +11,16 @@ const fetch = require('node-fetch');
 const app = express();
 const PORT = 5678;
 
-// Middleware
-app.use(express.json({ limit: '50mb' }));
+// Middleware with increased limits for long recordings
+app.use(express.json({ 
+  limit: '100mb',  // Increased from 50mb to handle longer recordings
+  parameterLimit: 50000
+}));
+app.use(express.urlencoded({ 
+  limit: '100mb', 
+  extended: true,
+  parameterLimit: 50000 
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // CORS middleware
@@ -159,27 +167,49 @@ app.post('/webhook/meeting-audio', (req, res) => {
   meetingData.stats.totalAudioSize += audioSizeBytes;
   meetingData.stats.lastActivity = receivedAt;
 
-  // Log to console
+  // Log to console with more detail for debugging
   console.log(`📥 [${receivedAt.toLocaleTimeString()}] Chunk ${chunkIndex} received`);
   console.log(`   Meeting: ${meetingId} | Session: ${recordingSessionId.slice(-8)}`);
-  console.log(`   Size: ${audioSizeBytes.toLocaleString()} bytes | ${isFirstChunk ? 'FIRST' : isLastChunk ? 'LAST' : 'MIDDLE'}`);
+  console.log(`   Size: ${audioSizeBytes.toLocaleString()} bytes (${(audioSizeBytes / (1024 * 1024)).toFixed(2)} MB) | ${isFirstChunk ? 'FIRST' : isLastChunk ? 'LAST' : 'MIDDLE'}`);
+  console.log(`   Base64 length: ${audioSize.toLocaleString()} chars`);
+  
+  // Warn if chunk is very large
+  if (audioSizeBytes > 10 * 1024 * 1024) {
+    console.warn(`   ⚠️  Large chunk detected: ${(audioSizeBytes / (1024 * 1024)).toFixed(2)} MB`);
+  }
 
   // Forward to n8n if configured (optional)
   const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://yambo-studio.app.n8n.cloud/webhook/meeting-audio';
   
   if (req.headers['x-forward-to-n8n'] === 'true' || req.query.forward === 'true') {
-    // Forward to n8n webhook
+    // Forward to n8n webhook with timeout and better error handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout for n8n
+    
     fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'Dashboard-Forwarder/1.0'
       },
-      body: JSON.stringify(req.body)
+      body: JSON.stringify(req.body),
+      signal: controller.signal
     }).then(n8nResponse => {
+      clearTimeout(timeoutId);
       console.log(`📤 Forwarded to n8n: ${n8nResponse.status}`);
+      if (!n8nResponse.ok) {
+        n8nResponse.text().then(text => {
+          console.error(`   n8n response: ${text.substring(0, 200)}`);
+        });
+      }
     }).catch(error => {
-      console.error('❌ Failed to forward to n8n:', error.message);
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        console.error('❌ n8n forward timeout after 45 seconds');
+      } else {
+        console.error('❌ Failed to forward to n8n:', error.message);
+      }
+      console.error(`   Audio size was: ${(audioSizeBytes / (1024 * 1024)).toFixed(2)} MB`);
     });
   }
 

@@ -539,25 +539,40 @@ function startMediaRecorder(stream, webhookUrl) {
       console.log('[POPUP] Recording state:', mediaRecorder.state);
     };
     
-    // Start recording with timeslice for debugging
-    const timeslice = 1000; // Request data every 1 second for debugging
+    // Start recording with larger timeslice for efficiency
+    const timeslice = 5000; // Request data every 5 seconds instead of 1
     console.log('[POPUP] Starting MediaRecorder with timeslice:', timeslice);
     mediaRecorder.start(timeslice);
     
-    // Send audio every 30 seconds
+    // Send audio every 15 seconds for better reliability with long recordings
+    const CHUNK_INTERVAL = 15000; // 15 seconds instead of 30
     recordingInterval = setInterval(() => {
       if (mediaRecorder && mediaRecorder.state === 'recording') {
-        console.log('[POPUP] 30-second interval - Restarting recorder for next chunk');
-        console.log('[POPUP] Current chunks before stop:', audioChunks.length);
-        mediaRecorder.stop();
-        setTimeout(() => {
-          if (mediaRecorder && !window.isRecordingStopping) {
-            console.log('[POPUP] Restarting MediaRecorder after stop');
-            mediaRecorder.start(timeslice);
-          }
-        }, 100);
+        const totalSize = audioChunksSizes.reduce((a, b) => a + b, 0);
+        console.log('[POPUP] Chunk interval - Current state:', {
+          chunks: audioChunks.length,
+          totalSize: totalSize,
+          totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2) + ' MB'
+        });
+        
+        // Check if we have accumulated data or size is getting large
+        const SIZE_THRESHOLD = 5 * 1024 * 1024; // 5MB threshold
+        if (audioChunks.length > 0 && (totalSize > SIZE_THRESHOLD || audioChunks.length > 3)) {
+          console.log('[POPUP] Sending chunk - size threshold reached or enough chunks accumulated');
+          mediaRecorder.stop();
+          setTimeout(() => {
+            if (mediaRecorder && !window.isRecordingStopping) {
+              console.log('[POPUP] Restarting MediaRecorder after stop');
+              mediaRecorder.start(timeslice);
+            }
+          }, 100);
+        } else if (audioChunks.length > 0) {
+          console.log('[POPUP] Have chunks but below threshold, will send at next interval');
+        } else {
+          console.log('[POPUP] No chunks accumulated yet');
+        }
       }
-    }, 30000);
+    }, CHUNK_INTERVAL);
     
     // Notify background that recording started
     chrome.runtime.sendMessage({
@@ -604,12 +619,20 @@ async function sendAudioToWebhook(webhookUrl) {
   const audioBlob = new Blob(audioChunks, {type: 'audio/webm'});
   console.log('[POPUP] Created audio blob:', {
     size: audioBlob.size,
-    type: audioBlob.type
+    type: audioBlob.type,
+    sizeInMB: (audioBlob.size / (1024 * 1024)).toFixed(2) + ' MB'
   });
   
   // Validate blob size
   if (audioBlob.size < 1000) {
     console.warn('[POPUP] WARNING: Audio blob is suspiciously small:', audioBlob.size, 'bytes');
+  }
+  
+  // Check if blob is too large (>10MB)
+  const MAX_BLOB_SIZE = 10 * 1024 * 1024; // 10MB limit
+  if (audioBlob.size > MAX_BLOB_SIZE) {
+    console.warn('[POPUP] WARNING: Audio blob is very large:', (audioBlob.size / (1024 * 1024)).toFixed(2), 'MB');
+    console.log('[POPUP] This might cause issues with transmission. Consider shorter chunks.');
   }
   
   // Prepare metadata for this chunk
@@ -669,32 +692,79 @@ async function sendAudioToWebhook(webhookUrl) {
         title: chunkMetadata.pageTitle || 'Untitled Recording'
       };
       
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+      // Implement retry logic for failed requests
+      let retryCount = 0;
+      const maxRetries = 3;
+      let lastError = null;
       
-      console.log('[POPUP] Webhook response:', response.status, response.statusText);
-      
-      if (response.ok) {
-        console.log('[POPUP] Audio chunk sent successfully');
-        // Increment chunk counter for next chunk
-        chunkCounter++;
-        isFirstChunk = false;
-        
-        // Update persisted recording data
-        chrome.storage.local.get(['recordingData'], (result) => {
-          if (result.recordingData) {
-            result.recordingData.chunkCounter = chunkCounter;
-            result.recordingData.isFirstChunk = false;
-            chrome.storage.local.set({recordingData: result.recordingData});
+      while (retryCount < maxRetries) {
+        try {
+          console.log('[POPUP] Sending request, attempt', retryCount + 1);
+          
+          // Create abort controller for timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+          
+          const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          console.log('[POPUP] Webhook response:', response.status, response.statusText);
+          
+          if (response.ok) {
+            console.log('[POPUP] Audio chunk sent successfully');
+            // Increment chunk counter for next chunk
+            chunkCounter++;
+            isFirstChunk = false;
+            
+            // Update persisted recording data
+            chrome.storage.local.get(['recordingData'], (result) => {
+              if (result.recordingData) {
+                result.recordingData.chunkCounter = chunkCounter;
+                result.recordingData.isFirstChunk = false;
+                chrome.storage.local.set({recordingData: result.recordingData});
+              }
+            });
+            break; // Success, exit retry loop
+          } else {
+            const errorText = await response.text();
+            console.error('[POPUP] Webhook error:', response.status, errorText);
+            lastError = `HTTP ${response.status}: ${errorText}`;
+            
+            // Don't retry on client errors (4xx)
+            if (response.status >= 400 && response.status < 500) {
+              console.error('[POPUP] Client error, not retrying');
+              break;
+            }
           }
-        });
-      } else {
-        console.error('[POPUP] Webhook error:', response.status, await response.text());
+        } catch (fetchError) {
+          console.error('[POPUP] Fetch error:', fetchError);
+          lastError = fetchError.message;
+          
+          if (fetchError.name === 'AbortError') {
+            console.error('[POPUP] Request timed out after 30 seconds');
+            lastError = 'Request timed out';
+          }
+        }
+        
+        retryCount++;
+        if (retryCount < maxRetries) {
+          console.log('[POPUP] Retrying in 2 seconds...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+      
+      if (retryCount === maxRetries && lastError) {
+        console.error('[POPUP] Failed after', maxRetries, 'attempts:', lastError);
+        updateStatus('error', 'Failed to send audio: ' + lastError);
+        setTimeout(() => updateStatus('recording', 'Recording'), 5000);
       }
       
     } catch (error) {
