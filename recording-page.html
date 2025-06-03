@@ -168,6 +168,15 @@
            placeholder="https://yambo-studio.app.n8n.cloud/webhook/meeting-audio"
            value="https://yambo-studio.app.n8n.cloud/webhook/meeting-audio">
     
+    <div style="margin: 15px 0;">
+      <label style="font-size: 16px; color: #333;">Audio Source:</label>
+      <select id="audioSource" style="width: 100%; padding: 10px; margin-top: 5px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;">
+        <option value="microphone">Microphone Only</option>
+        <option value="system">System Audio Only</option>
+        <option value="both">Both (Microphone + System)</option>
+      </select>
+    </div>
+    
     <div>
       <button id="btnPermission" class="btn-permission">
         🎤 Request Microphone Permission
@@ -200,6 +209,7 @@
     </div>
   </div>
   
+  <script src="audio-capture-handler.js"></script>
   <script src="recording-debug.js"></script>
   <script src="recording-page.js"></script>
 </body>

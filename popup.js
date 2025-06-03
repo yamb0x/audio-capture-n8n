@@ -22,6 +22,7 @@ const statusIndicator = document.getElementById('status');
 const webhookInput = document.getElementById('webhookUrl');
 const statusText = document.getElementById('statusText');
 const requestMicBtn = document.getElementById('requestMicBtn');
+const audioSourceSelect = document.getElementById('audioSource');
 
 // Debug: Check if elements were found
 console.log('[POPUP] UI Elements found:', {
@@ -30,7 +31,8 @@ console.log('[POPUP] UI Elements found:', {
   statusIndicator: !!statusIndicator,
   webhookInput: !!webhookInput,
   statusText: !!statusText,
-  requestMicBtn: !!requestMicBtn
+  requestMicBtn: !!requestMicBtn,
+  audioSourceSelect: !!audioSourceSelect
 });
 
 let currentStatus = 'ready';
@@ -308,6 +310,7 @@ let mediaRecorder = null;
 let audioChunks = [];
 let recordingInterval = null;
 let audioStream = null;
+let audioCaptureHandler = null;
 
 async function startRecording(webhookUrl) {
   console.log('[POPUP] startRecording called');
@@ -332,21 +335,35 @@ async function startRecording(webhookUrl) {
   }
   
   try {
-    console.log('[POPUP] Requesting microphone access...');
+    // Get selected audio source
+    const audioSource = audioSourceSelect.value;
+    console.log('[POPUP] Selected audio source:', audioSource);
     
-    // Enhanced getUserMedia with detailed constraints
-    const constraints = {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: 48000
+    // Get current tab for system audio
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const currentTab = tabs[0];
+    console.log('[POPUP] Current tab:', currentTab);
+    
+    // Check system audio availability
+    if (audioSource !== 'microphone') {
+      const availability = await AudioCaptureHandler.checkSystemAudioAvailability();
+      console.log('[POPUP] System audio availability:', availability);
+      
+      if (!availability.available) {
+        updateStatus('error', `System audio not available: ${availability.reason}`);
+        // Fall back to microphone only
+        audioSourceSelect.value = 'microphone';
+        alert(`System audio capture not available: ${availability.reason}\n\nFalling back to microphone only.`);
       }
-    };
+    }
     
-    console.log('[POPUP] Audio constraints:', constraints);
+    // Initialize audio capture handler
+    audioCaptureHandler = new AudioCaptureHandler();
     
-    audioStream = await navigator.mediaDevices.getUserMedia(constraints);
+    // Get audio stream based on selected source
+    console.log('[POPUP] Getting audio stream for source:', audioSourceSelect.value);
+    audioStream = await audioCaptureHandler.getAudioStream(audioSourceSelect.value, currentTab.id);
+    
     console.log('[POPUP] Got audio stream:', audioStream);
     console.log('[POPUP] Audio stream active:', audioStream.active);
     console.log('[POPUP] Audio tracks:', audioStream.getAudioTracks().length);
@@ -802,6 +819,13 @@ function stopRecording() {
       track.stop();
     });
     audioStream = null;
+  }
+  
+  // Stop audio capture handler
+  if (audioCaptureHandler) {
+    console.log('[POPUP] Stopping audio capture handler...');
+    audioCaptureHandler.stopAllStreams();
+    audioCaptureHandler = null;
   }
   
   // Clear storage

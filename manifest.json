@@ -27,10 +27,10 @@
     {
       "resources": [
         "audio-processor.js",
+        "audio-capture-handler.js",
         "recording-page.html",
         "recording-page.js",
-        "recording-page-enhanced.html",
-        "recording-page-enhanced.js"
+        "recording-debug.js"
       ],
       "matches": ["<all_urls>"]
     }

@@ -10,6 +10,7 @@ const statusMessage = document.getElementById('statusMessage');
 const audioLevels = document.getElementById('audioLevels');
 const levelFill = document.getElementById('levelFill');
 const levelValue = document.getElementById('levelValue');
+const audioSourceSelect = document.getElementById('audioSource');
 
 // State
 let mediaRecorder = null;
@@ -19,6 +20,7 @@ let recordingInterval = null;
 let audioContext = null;
 let analyser = null;
 let animationId = null;
+let audioCaptureHandler = null;
 
 // Recording metadata
 let recordingSessionId = null;
@@ -49,12 +51,25 @@ function updateStatus(status, message, isError = false) {
   statusMessage.className = isError ? 'error-box' : 'info-box';
 }
 
+// Update permission button text based on audio source
+audioSourceSelect.addEventListener('change', () => {
+  const source = audioSourceSelect.value;
+  if (source === 'microphone') {
+    btnPermission.textContent = '🎤 Request Microphone Permission';
+  } else if (source === 'system') {
+    btnPermission.textContent = '🔊 Request System Audio Permission';
+  } else {
+    btnPermission.textContent = '🎵 Request Audio Permissions';
+  }
+});
+
 // Request microphone permission
 btnPermission.addEventListener('click', async () => {
-  console.log('[RECORDING PAGE] Requesting microphone permission...');
+  const audioSource = audioSourceSelect.value;
+  console.log('[RECORDING PAGE] Requesting permission for:', audioSource);
   
   try {
-    updateStatus('connecting', 'Requesting microphone permission...');
+    updateStatus('connecting', `Requesting ${audioSource} permission...`);
     
     // Request permission with constraints
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -148,15 +163,28 @@ btnStart.addEventListener('click', async () => {
     // Save webhook URL
     localStorage.setItem('webhookUrl', webhookInput.value);
     
-    // Get audio stream
-    audioStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: 48000
+    // Get selected audio source
+    const audioSource = audioSourceSelect.value;
+    console.log('[RECORDING PAGE] Selected audio source:', audioSource);
+    
+    // Initialize audio capture handler
+    audioCaptureHandler = new AudioCaptureHandler();
+    
+    // Get audio stream based on selected source
+    try {
+      audioStream = await audioCaptureHandler.getAudioStream(audioSource, tab.id);
+      console.log('[RECORDING PAGE] Got audio stream for source:', audioSource);
+    } catch (error) {
+      console.error('[RECORDING PAGE] Failed to get audio stream:', error);
+      // Fall back to microphone only
+      if (audioSource !== 'microphone') {
+        updateStatus('error', `${error.message}. Falling back to microphone.`);
+        audioSourceSelect.value = 'microphone';
+        audioStream = await audioCaptureHandler.getAudioStream('microphone', tab.id);
+      } else {
+        throw error;
       }
-    });
+    }
     
     // Setup audio level monitoring
     setupAudioLevelMonitoring(audioStream);
@@ -361,6 +389,11 @@ function stopRecording() {
   if (audioStream) {
     audioStream.getTracks().forEach(track => track.stop());
     audioStream = null;
+  }
+  
+  if (audioCaptureHandler) {
+    audioCaptureHandler.stopAllStreams();
+    audioCaptureHandler = null;
   }
   
   if (animationId) {
